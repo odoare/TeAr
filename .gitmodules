@@ -1,0 +1,3 @@
+[submodule "Source/libs/cppMusicTools"]
+	path = Source/libs/cppMusicTools
+	url = https://github.com/odoare/cppMusicTools
