@@ -1,0 +1,15 @@
+# JUCE specific
+# Ignore the auto-generated JuceLibraryCode directory
+/JuceLibraryCode/
+
+# Ignore all build folders
+/Builds/
+/Assets/bak/
+/doxygen_docs/
+
+# Common OS and editor files
+.DS_Store
+*.swp
+*.swo
+.vscode/
+.idea/
