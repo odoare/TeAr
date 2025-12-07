@@ -13,8 +13,28 @@
 TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
-    // Make sure that before the constructor has finished, you've set the
-    // editor's size to whatever you need it to be.
+    // This lambda is called when the user finishes editing the label text
+    auto onTextChange = [this]
+    {
+        audioProcessor.setArpeggiatorPattern (arpeggiatorLabel.getText());
+    };
+
+    arpeggiatorLabel.setEditable(true);
+    arpeggiatorLabel.setJustificationType(juce::Justification::centred);
+    arpeggiatorLabel.onEditorShow = [this] { arpeggiatorLabel.getCurrentTextEditor()->setInputRestrictions(0); }; // Allow any characters
+    arpeggiatorLabel.onTextChange = onTextChange;
+    addAndMakeVisible(arpeggiatorLabel);
+
+    arpeggiatorLabel.setText (audioProcessor.getArpeggiatorPattern(), juce::dontSendNotification);
+
+    addAndMakeVisible(chordMethodLabel);
+    chordMethodLabel.setText("Chord Method", juce::dontSendNotification);
+    chordMethodLabel.attachToComponent(&chordMethodBox, true);
+
+    addAndMakeVisible(chordMethodBox);
+    chordMethodBox.addItem("Notes played", 1);
+    chordMethodBox.setSelectedId(1);
+
     setSize (400, 300);
 }
 
@@ -27,14 +47,14 @@ void TeArAudioProcessorEditor::paint (juce::Graphics& g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
-
-    g.setColour (juce::Colours::white);
-    g.setFont (juce::FontOptions (15.0f));
-    g.drawFittedText ("Hello World!", getLocalBounds(), juce::Justification::centred, 1);
 }
 
 void TeArAudioProcessorEditor::resized()
 {
-    // This is generally where you'll want to lay out the positions of any
-    // subcomponents in your editor..
+    auto bounds = getLocalBounds().reduced(20);
+    
+    auto topArea = bounds.removeFromTop(40);
+    chordMethodBox.setBounds(topArea.withLeft(100));
+
+    arpeggiatorLabel.setBounds(bounds);
 }

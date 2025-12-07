@@ -9,6 +9,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include "libs/cppMusicTools/Arpeggiator.h"
 
 //==============================================================================
 /**
@@ -53,7 +54,15 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    // Getter and Setter for our custom string parameter
+    void setArpeggiatorPattern (const juce::String& pattern);
+    const juce::String& getArpeggiatorPattern() const;
+
 private:
+    Arpeggiator arpeggiator;
+    juce::String arpeggiatorPattern {"012"}; // Our string parameter with a default value
+    juce::Array<int> heldNotes;
+    
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TeArAudioProcessor)
 };

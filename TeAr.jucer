@@ -1,9 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="j4AULN" name="TeAr" projectType="audioplug" useAppConfig="0"
-              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1">
+              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" pluginFormats="buildStandalone,buildVST,buildVST3"
+              pluginCharacteristicsValue="pluginIsMidiEffectPlugin,pluginProducesMidiOut,pluginWantsMidiIn">
   <MAINGROUP id="CrGhnX" name="TeAr">
     <GROUP id="{CC837EB5-75FC-F5E2-72FA-39200551468C}" name="Source">
+      <FILE id="c0XIdE" name="MidiTools.h" compile="0" resource="0" file="Source/libs/cppMusicTools/MidiTools.h"/>
+      <FILE id="m4bUmK" name="Arpeggiator.h" compile="0" resource="0" file="Source/libs/cppMusicTools/Arpeggiator.h"/>
       <FILE id="K03YE8" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
       <FILE id="edg028" name="PluginProcessor.h" compile="0" resource="0"
@@ -32,7 +35,6 @@
   <EXPORTFORMATS>
     <LINUX_MAKE targetFolder="Builds/LinuxMakefile">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug" targetName="TeAr"/>
         <CONFIGURATION isDebug="0" name="Release" targetName="TeAr"/>
       </CONFIGURATIONS>
       <MODULEPATHS>
@@ -52,7 +54,6 @@
     </LINUX_MAKE>
     <VS2022 targetFolder="Builds/VisualStudio2022">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug" targetName="TeAr"/>
         <CONFIGURATION isDebug="0" name="Release" targetName="TeAr"/>
       </CONFIGURATIONS>
       <MODULEPATHS>

@@ -1,11 +1,11 @@
 /*
   ==============================================================================
-
+ 
     This file contains the basic framework code for a JUCE plugin processor.
-
+ 
   ==============================================================================
 */
-
+ 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
@@ -20,7 +20,7 @@ TeArAudioProcessor::TeArAudioProcessor()
                        .withOutput ("Output", juce::AudioChannelSet::stereo(), true)
                      #endif
                        )
-#endif
+     #endif
 {
 }
 
@@ -93,8 +93,8 @@ void TeArAudioProcessor::changeProgramName (int index, const juce::String& newNa
 //==============================================================================
 void TeArAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    // Use this method as the place to do any pre-playback
-    // initialisation that you need..
+    arpeggiator.prepareToPlay(sampleRate);
+    arpeggiator.setPattern(arpeggiatorPattern);
 }
 
 void TeArAudioProcessor::releaseResources()
@@ -140,6 +140,37 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     // guaranteed to be empty - they may contain garbage).
     // This is here to avoid people getting screaming feedback
     // when they first compile a plugin, but obviously you don't need to keep
+
+    // --- Handle incoming MIDI notes to track held notes ---
+    bool notesChanged = false;
+    for (const auto metadata : midiMessages)
+    {
+        const auto msg = metadata.getMessage();
+        if (msg.isNoteOn())
+        {
+            heldNotes.addIfNotAlreadyThere(msg.getNoteNumber());
+            notesChanged = true;
+            std::cout << "Note on: " << msg.getNoteNumber() << std::endl;
+        }
+        else if (msg.isNoteOff())
+        {
+            heldNotes.removeFirstMatchingValue(msg.getNoteNumber());
+            notesChanged = true;
+            std::cout << "Note off: " << msg.getNoteNumber() << std::endl;            
+        }
+    }
+
+    if (notesChanged)
+    {
+        MidiTools::Chord playedChord("");
+        playedChord.setDegreesByArray(heldNotes);
+        arpeggiator.setChord(playedChord);
+        std::cout << "Notes: " ;
+        for (int note : heldNotes)
+            std::cout << note << " ";
+        std::cout << std::endl;
+        std::cout << "Chord: " << playedChord.getName() << std::endl;
+    }
     // this code if your algorithm always overwrites all the output channels.
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
@@ -150,12 +181,13 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     // the samples and the outer loop is handling the channels.
     // Alternatively, you can process the samples with the channels
     // interleaved by keeping the same state.
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
-    {
-        auto* channelData = buffer.getWritePointer (channel);
 
-        // ..do something to the data...
-    }
+    // We clear the incoming buffer and fill it with arpeggiator output
+    midiMessages.clear();
+
+    // Only run the arpeggiator if notes are being held
+    if (!heldNotes.isEmpty())
+        midiMessages.addEvents(arpeggiator.processBlock(buffer.getNumSamples()), 0, -1, 0);
 }
 
 //==============================================================================
@@ -172,15 +204,39 @@ juce::AudioProcessorEditor* TeArAudioProcessor::createEditor()
 //==============================================================================
 void TeArAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    // You should use this method to store your parameters in the memory block.
-    // You could do that either as raw data, or use the XML or ValueTree classes
-    // as intermediaries to make it easy to save and load complex data.
+    // Create an XML element to hold our state
+    auto state = std::make_unique<juce::XmlElement> ("TeArState");
+    state->setAttribute ("arpeggiatorPattern", arpeggiatorPattern);
+
+    // Convert the XML to binary and store it
+    copyXmlToBinary (*state, destData);
 }
 
 void TeArAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    // You should use this method to restore your parameters from this memory block,
-    // whose contents will have been created by the getStateInformation() call.
+    // Get the XML from the binary data
+    std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
+
+    if (xmlState != nullptr)
+    {
+        // Check that it's our XML tag
+        if (xmlState->hasTagName ("TeArState"))
+        {
+            // Restore the value
+            arpeggiatorPattern = xmlState->getStringAttribute ("arpeggiatorPattern", "C E G");
+        }
+    }
+}
+
+void TeArAudioProcessor::setArpeggiatorPattern (const juce::String& pattern)
+{
+    arpeggiatorPattern = pattern;
+    arpeggiator.setPattern(arpeggiatorPattern);
+}
+
+const juce::String& TeArAudioProcessor::getArpeggiatorPattern() const
+{
+    return arpeggiatorPattern;
 }
 
 //==============================================================================
