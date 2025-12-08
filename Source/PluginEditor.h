@@ -14,25 +14,27 @@
 //==============================================================================
 /**
 */
-class TeArAudioProcessorEditor  : public juce::AudioProcessorEditor
+class TeArAudioProcessorEditor  : public juce::AudioProcessorEditor,
+                                  public juce::ChangeListener
 {
 public:
     TeArAudioProcessorEditor (TeArAudioProcessor&);
     ~TeArAudioProcessorEditor() override;
 
     //==============================================================================
+    void changeListenerCallback (juce::ChangeBroadcaster* source) override;
+
     void paint (juce::Graphics&) override;
     void resized() override;
 
 private:
-    // This reference is provided as a quick way for your editor to
-    // access the processor object that created it.
     TeArAudioProcessor& audioProcessor;
 
     juce::Label arpeggiatorLabel;
     
     juce::Label chordMethodLabel;
     juce::ComboBox chordMethodBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> chordMethodAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TeArAudioProcessorEditor)
 };

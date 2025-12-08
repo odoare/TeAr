@@ -14,7 +14,8 @@
 //==============================================================================
 /**
 */
-class TeArAudioProcessor  : public juce::AudioProcessor
+class TeArAudioProcessor  : public juce::AudioProcessor,
+                            public juce::ChangeBroadcaster
 {
 public:
     //==============================================================================
@@ -58,11 +59,19 @@ public:
     void setArpeggiatorPattern (const juce::String& pattern);
     const juce::String& getArpeggiatorPattern() const;
 
+    juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
+
 private:
     Arpeggiator arpeggiator;
-    juce::String arpeggiatorPattern {"012"}; // Our string parameter with a default value
     juce::Array<int> heldNotes;
-    
+    juce::String arpeggiatorPattern {"0 1 2"}; // Our string parameter with a default value
+
+    juce::AudioProcessorValueTreeState apvts;
+    juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
+
+    double lastKnownBPM = 120.0;
+    bool wasPlaying = false;
+
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TeArAudioProcessor)
 };

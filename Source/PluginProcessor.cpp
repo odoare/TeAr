@@ -8,6 +8,7 @@
  
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+//#include <memory>
 
 //==============================================================================
 TeArAudioProcessor::TeArAudioProcessor()
@@ -21,6 +22,7 @@ TeArAudioProcessor::TeArAudioProcessor()
                      #endif
                        )
      #endif
+    , apvts(*this, nullptr, "Parameters", createParameters())
 {
 }
 
@@ -94,7 +96,7 @@ void TeArAudioProcessor::changeProgramName (int index, const juce::String& newNa
 void TeArAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     arpeggiator.prepareToPlay(sampleRate);
-    arpeggiator.setPattern(arpeggiatorPattern);
+    arpeggiator.setPattern(arpeggiatorPattern); // Set initial pattern
 }
 
 void TeArAudioProcessor::releaseResources()
@@ -134,6 +136,32 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
+
+    // --- Get Host Transport Information ---
+    if (auto* playHead = getPlayHead())
+    {
+        juce::AudioPlayHead::CurrentPositionInfo positionInfo;
+        if (playHead->getCurrentPosition(positionInfo))
+        {
+            // Update tempo if it has changed
+            if (positionInfo.bpm > 0.0 && positionInfo.bpm != lastKnownBPM)
+            {
+                lastKnownBPM = positionInfo.bpm;
+                arpeggiator.setTempo(lastKnownBPM);
+            }
+
+            // If playback has just started, reset the arpeggiator's position
+            if (positionInfo.isPlaying && !wasPlaying)
+            {
+                arpeggiator.reset();
+            }
+            wasPlaying = positionInfo.isPlaying;
+
+            // Sync the arpeggiator to the host's grid if playing
+            if (positionInfo.isPlaying)
+                arpeggiator.syncToPlayHead(positionInfo);
+        }
+    }
 
     // In case we have more outputs than inputs, this code clears any output
     // channels that didn't contain input data, (because these aren't
@@ -204,39 +232,60 @@ juce::AudioProcessorEditor* TeArAudioProcessor::createEditor()
 //==============================================================================
 void TeArAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    // Create an XML element to hold our state
-    auto state = std::make_unique<juce::XmlElement> ("TeArState");
-    state->setAttribute ("arpeggiatorPattern", arpeggiatorPattern);
+    // Get the state from APVTS
+    auto apvtsState = apvts.copyState();
+    std::unique_ptr<juce::XmlElement> xml (apvtsState.createXml());
+
+    // Manually add our string parameter to the XML
+    xml->setAttribute("arpeggiatorPattern", arpeggiatorPattern);
 
     // Convert the XML to binary and store it
-    copyXmlToBinary (*state, destData);
+    copyXmlToBinary(*xml, destData);
 }
 
 void TeArAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
-    // Get the XML from the binary data
     std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
-
+ 
     if (xmlState != nullptr)
     {
-        // Check that it's our XML tag
-        if (xmlState->hasTagName ("TeArState"))
+        // Restore the APVTS state
+        if (xmlState->hasTagName (apvts.state.getType()))
+            apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
+
+        // Manually restore our string parameter from the same XML
+        if (xmlState->hasAttribute("arpeggiatorPattern"))
         {
             // Restore the value
-            arpeggiatorPattern = xmlState->getStringAttribute ("arpeggiatorPattern", "C E G");
+            arpeggiatorPattern = xmlState->getStringAttribute("arpeggiatorPattern", "0 1 2");
+            arpeggiator.setPattern(arpeggiatorPattern);
+
+            // Notify listeners (like the editor) that our manual state has changed.
+            sendChangeMessage();
         }
     }
 }
 
-void TeArAudioProcessor::setArpeggiatorPattern (const juce::String& pattern)
+void TeArAudioProcessor::setArpeggiatorPattern(const juce::String& pattern)
 {
     arpeggiatorPattern = pattern;
     arpeggiator.setPattern(arpeggiatorPattern);
 }
 
-const juce::String& TeArAudioProcessor::getArpeggiatorPattern() const
+const juce::String& TeArAudioProcessor::getArpeggiatorPattern() const { return arpeggiatorPattern; }
+
+juce::AudioProcessorValueTreeState::ParameterLayout TeArAudioProcessor::createParameters()
 {
-    return arpeggiatorPattern;
+    juce::AudioProcessorValueTreeState::ParameterLayout layout;
+
+    juce::StringArray chordMethods = { "Notes played", "Chord played as is", "Single note" };
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        "chordMethod",
+        "Chord Method",
+        chordMethods,
+        0)); // Default to "Notes played"
+
+    return layout;
 }
 
 //==============================================================================
