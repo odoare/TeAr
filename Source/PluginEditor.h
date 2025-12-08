@@ -36,5 +36,9 @@ private:
     juce::ComboBox chordMethodBox;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> chordMethodAttachment;
 
+    juce::Label subdivisionLabel;
+    juce::ComboBox subdivisionBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> subdivisionAttachment;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TeArAudioProcessorEditor)
 };

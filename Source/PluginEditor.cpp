@@ -42,6 +42,20 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     // Now create the attachment, which will sync the selection with the parameter's current value.
     chordMethodAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, "chordMethod", chordMethodBox);
 
+    addAndMakeVisible(subdivisionLabel);
+    subdivisionLabel.setText("Subdivision", juce::dontSendNotification);
+    subdivisionLabel.attachToComponent(&subdivisionBox, true);
+
+    addAndMakeVisible(subdivisionBox);
+    // Manually populate the ComboBox *before* creating the attachment.
+    if (auto* parameter = dynamic_cast<juce::AudioParameterChoice*>(apvts.getParameter("subdivision")))
+    {
+        subdivisionBox.clear();
+        subdivisionBox.addItemList(parameter->choices, 1);
+    }
+    subdivisionAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, "subdivision", subdivisionBox);
+
+
     setSize (400, 300);
 }
 
@@ -67,8 +81,12 @@ void TeArAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds().reduced(15);
 
-    auto topArea = bounds.removeFromTop(40);
-    chordMethodBox.setBounds(topArea.withLeft(100));
+    auto topRow = bounds.removeFromTop(40);
+    auto leftColumn = topRow.removeFromLeft(topRow.getWidth() / 2).reduced(5, 0);
+    auto rightColumn = topRow.reduced(5, 0);
+
+    chordMethodBox.setBounds(leftColumn.withLeft(leftColumn.getX() + 90));
+    subdivisionBox.setBounds(rightColumn.withLeft(rightColumn.getX() + 80));
 
     arpeggiatorLabel.setBounds(bounds);
 }

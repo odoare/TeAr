@@ -24,10 +24,12 @@ TeArAudioProcessor::TeArAudioProcessor()
      #endif
     , apvts(*this, nullptr, "Parameters", createParameters())
 {
+    apvts.addParameterListener("subdivision", this);
 }
 
 TeArAudioProcessor::~TeArAudioProcessor()
 {
+    apvts.removeParameterListener("subdivision", this);
 }
 
 //==============================================================================
@@ -274,6 +276,15 @@ void TeArAudioProcessor::setArpeggiatorPattern(const juce::String& pattern)
 
 const juce::String& TeArAudioProcessor::getArpeggiatorPattern() const { return arpeggiatorPattern; }
 
+void TeArAudioProcessor::parameterChanged (const juce::String& parameterID, float newValue)
+{
+    if (parameterID == "subdivision")
+    {
+        // Pass the integer index of the choice to the arpeggiator
+        arpeggiator.setSubdivision(static_cast<int>(newValue));
+    }
+}
+
 juce::AudioProcessorValueTreeState::ParameterLayout TeArAudioProcessor::createParameters()
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
@@ -284,6 +295,14 @@ juce::AudioProcessorValueTreeState::ParameterLayout TeArAudioProcessor::createPa
         "Chord Method",
         chordMethods,
         0)); // Default to "Notes played"
+
+    juce::StringArray subdivisions = { "1/4", "1/4T", "1/8", "1/8T", "1/16", "1/16T", "1/32", "1/32T" };
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        "subdivision",
+        "Subdivision",
+        subdivisions,
+        4 // Default to 1/16
+    ));
 
     return layout;
 }
