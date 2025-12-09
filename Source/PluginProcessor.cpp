@@ -25,11 +25,17 @@ TeArAudioProcessor::TeArAudioProcessor()
     , apvts(*this, nullptr, "Parameters", createParameters())
 {
     apvts.addParameterListener("subdivision", this);
+    apvts.addParameterListener("chordMethod", this);
+    apvts.addParameterListener("scaleRoot", this);
+    apvts.addParameterListener("scaleType", this);
 }
 
 TeArAudioProcessor::~TeArAudioProcessor()
 {
     apvts.removeParameterListener("subdivision", this);
+    apvts.removeParameterListener("chordMethod", this);
+    apvts.removeParameterListener("scaleRoot", this);
+    apvts.removeParameterListener("scaleType", this);
 }
 
 //==============================================================================
@@ -168,12 +174,6 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
         }
     }
 
-    // In case we have more outputs than inputs, this code clears any output
-    // channels that didn't contain input data, (because these aren't
-    // guaranteed to be empty - they may contain garbage).
-    // This is here to avoid people getting screaming feedback
-    // when they first compile a plugin, but obviously you don't need to keep
-
     // --- Handle incoming MIDI notes to track held notes ---
     bool notesChanged = false;
     for (const auto metadata : midiMessages) // This is why we must not clear midiMessages at the start!
@@ -196,8 +196,16 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     if (notesChanged)
     {
         MidiTools::Chord playedChord("");
-        playedChord.setDegreesByArray(heldNotes);
-        arpeggiator.setChord(playedChord);
+        auto* chordMethodParam = apvts.getRawParameterValue("chordMethod");
+        if (chordMethodParam && static_cast<int>(chordMethodParam->load()) == 1)
+        {
+            playedChord.setNotesByArray(heldNotes);
+        }
+        else
+        {
+            playedChord.setDegreesByArray(heldNotes);
+        }
+        arpeggiator.setChord(playedChord);        
         std::cout << "Notes: " ;
         for (int note : heldNotes)
             std::cout << note << " ";
@@ -298,6 +306,17 @@ void TeArAudioProcessor::parameterChanged (const juce::String& parameterID, floa
         // Pass the integer index of the choice to the arpeggiator
         arpeggiator.setSubdivision(static_cast<int>(newValue));
     }
+    else if (parameterID == "chordMethod")
+    {
+        // Pass the integer index of the choice to the arpeggiator
+        arpeggiator.setChordMethod(static_cast<int>(newValue));
+    }
+    else if (parameterID == "scaleRoot")
+    {
+    }
+    else if (parameterID == "scaleType")
+    {
+    }
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout TeArAudioProcessor::createParameters()
@@ -317,6 +336,22 @@ juce::AudioProcessorValueTreeState::ParameterLayout TeArAudioProcessor::createPa
         "Subdivision",
         subdivisions,
         4 // Default to 1/16
+    ));
+
+    juce::StringArray scaleRoots = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        "scaleRoot",
+        "Scale Root",
+        scaleRoots,
+        0 // Default to C
+    ));
+
+    juce::StringArray scaleTypes = { "Major", "Melodic Minor", "Harmonic Minor", "Bartok" };
+    layout.add(std::make_unique<juce::AudioParameterChoice>(
+        "scaleType",
+        "Scale Type",
+        scaleTypes,
+        0 // Default to Major
     ));
 
     return layout;

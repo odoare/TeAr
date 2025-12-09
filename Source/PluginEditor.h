@@ -40,5 +40,13 @@ private:
     juce::ComboBox subdivisionBox;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> subdivisionAttachment;
 
+    juce::Label scaleRootLabel;
+    juce::ComboBox scaleRootBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> scaleRootAttachment;
+
+    juce::Label scaleTypeLabel;
+    juce::ComboBox scaleTypeBox;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> scaleTypeAttachment;
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TeArAudioProcessorEditor)
 };

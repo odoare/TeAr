@@ -56,7 +56,7 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
-    void parameterChanged (const juce::String& parameterID, float newValue) override;
+    void parameterChanged(const juce::String& parameterID, float newValue) override;
 
     // Getter and Setter for our custom string parameter
     void setArpeggiatorPattern (const juce::String& pattern);
