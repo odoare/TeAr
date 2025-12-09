@@ -139,6 +139,8 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
+    bool transportJustStopped = false;
+
     // --- Get Host Transport Information ---
     if (auto* playHead = getPlayHead())
     {
@@ -152,16 +154,17 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
                 arpeggiator.setTempo(lastKnownBPM);
             }
 
-            // If playback has just started, reset the arpeggiator's position
-            if (positionInfo.isPlaying && !wasPlaying)
-            {
-                arpeggiator.reset();
-            }
-            wasPlaying = positionInfo.isPlaying;
-
             // Sync the arpeggiator to the host's grid if playing
             if (positionInfo.isPlaying)
                 arpeggiator.syncToPlayHead(positionInfo);
+            else if (wasPlaying)
+                transportJustStopped = true;
+
+            if (positionInfo.isPlaying && !wasPlaying) // Playback just started
+            {
+                // This block can be used for logic that needs to run only on the first block of playback.
+            }
+            wasPlaying = positionInfo.isPlaying;
         }
     }
 
@@ -173,7 +176,7 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
 
     // --- Handle incoming MIDI notes to track held notes ---
     bool notesChanged = false;
-    for (const auto metadata : midiMessages)
+    for (const auto metadata : midiMessages) // This is why we must not clear midiMessages at the start!
     {
         const auto msg = metadata.getMessage();
         if (msg.isNoteOn())
@@ -201,6 +204,23 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
         std::cout << std::endl;
         std::cout << "Chord: " << playedChord.getName() << std::endl;
     }
+
+    // We clear the incoming buffer and fill it with arpeggiator output
+    midiMessages.clear();
+
+    // If the user just released the last key, send a note off.
+    if (notesChanged && heldNotes.isEmpty())
+    {
+        midiMessages.addEvents(arpeggiator.turnOff(), 0, -1, 0);
+    }
+    // If the transport just stopped, also send a note off.
+    // This is placed after the clear() call to ensure the message is not erased.
+    if (transportJustStopped)
+    {
+        midiMessages.addEvents(arpeggiator.reset(), 0, -1, 0);
+    }
+
+
     // this code if your algorithm always overwrites all the output channels.
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
@@ -211,11 +231,6 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     // the samples and the outer loop is handling the channels.
     // Alternatively, you can process the samples with the channels
     // interleaved by keeping the same state.
-
-    // We clear the incoming buffer and fill it with arpeggiator output
-    midiMessages.clear();
-
-    // Only run the arpeggiator if notes are being held
     if (!heldNotes.isEmpty())
         midiMessages.addEvents(arpeggiator.processBlock(buffer.getNumSamples()), 0, -1, 0);
 }
