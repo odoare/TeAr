@@ -196,21 +196,57 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     if (notesChanged)
     {
         MidiTools::Chord playedChord("");
-        auto* chordMethodParam = apvts.getRawParameterValue("chordMethod");
-        if (chordMethodParam && static_cast<int>(chordMethodParam->load()) == 1)
+        auto chordMethod = static_cast<int>(apvts.getRawParameterValue("chordMethod")->load());
+
+        switch (chordMethod)
         {
-            playedChord.setNotesByArray(heldNotes);
-        }
-        else
-        {
-            playedChord.setDegreesByArray(heldNotes);
+            case 0: // Notes played
+                playedChord.setDegreesByArray(heldNotes);
+                break;
+            case 1: // Chord played as is
+                playedChord.setNotesByArray(heldNotes);
+                break;
+            case 2: // Single note
+                if (!heldNotes.isEmpty())
+                {
+                    // Get scale parameters from APVTS
+                    auto rootNoteIndex = static_cast<int>(apvts.getRawParameterValue("scaleRoot")->load());
+                    auto scaleTypeIndex = static_cast<int>(apvts.getRawParameterValue("scaleType")->load());
+                    auto scaleType = static_cast<MidiTools::Scale::Type>(scaleTypeIndex);
+
+                    // Create the scale
+                    MidiTools::Scale currentScale(rootNoteIndex, scaleType);
+                    const auto& scaleNotes = currentScale.getNotes();
+
+                    // Find which degree of the scale the last played note corresponds to.
+                    int lastNote = heldNotes.getLast();
+                    int lastNoteSemitone = lastNote % 12;
+                    int degree = scaleNotes.indexOf(lastNoteSemitone);
+
+                    if (degree != -1) // If the note is in the scale
+                    {
+                        // Set the arpeggiator's base octave from the played note.
+                        arpeggiator.setBaseOctaveFromNote(lastNote);
+                        // Build the new chord from the scale and degree
+                        playedChord = MidiTools::Chord::fromScaleAndDegree(currentScale, degree);
+                    }
+                    else
+                    {
+                        // If note is not in scale, maybe just use the root? Or do nothing.
+                        // For now, we'll build from the root of the scale.
+                        // Set the arpeggiator's base octave from the played note.
+                        arpeggiator.setBaseOctaveFromNote(lastNote);
+                        playedChord = MidiTools::Chord::fromScaleAndDegree(currentScale, 0);
+                    }
+                }
+                break;
         }
         arpeggiator.setChord(playedChord);        
-        std::cout << "Notes: " ;
-        for (int note : heldNotes)
-            std::cout << note << " ";
-        std::cout << std::endl;
-        std::cout << "Chord: " << playedChord.getName() << std::endl;
+        // std::cout << "Notes: " ;
+        // for (int note : heldNotes)
+        //     std::cout << note << " ";
+        // std::cout << std::endl;
+        // std::cout << "Chord: " << playedChord.getName() << std::endl;
     }
 
     // We clear the incoming buffer and fill it with arpeggiator output
@@ -310,6 +346,8 @@ void TeArAudioProcessor::parameterChanged (const juce::String& parameterID, floa
     {
         // Pass the integer index of the choice to the arpeggiator
         arpeggiator.setChordMethod(static_cast<int>(newValue));
+        // Reset arpeggiator to clear any old state (like a modified octave)
+        arpeggiator.reset();
     }
     else if (parameterID == "scaleRoot")
     {
