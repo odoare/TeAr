@@ -65,15 +65,16 @@ public:
     juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
 
 private:
-    Arpeggiator arpeggiator;
-    juce::Array<int> heldNotes;
-    juce::String arpeggiatorPattern {"0 1 2"}; // Our string parameter with a default value
+    juce::String arpeggiatorPattern = "0 1 2";
 
     juce::AudioProcessorValueTreeState apvts;
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
 
     double lastKnownBPM = 120.0;
     bool wasPlaying = false;
+
+    Arpeggiator arpeggiator;
+    juce::Array<int> heldNotes;
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TeArAudioProcessor)

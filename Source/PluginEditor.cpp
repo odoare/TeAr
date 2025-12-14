@@ -10,6 +10,20 @@
 #include "PluginEditor.h"
 
 //==============================================================================
+void TeArAudioProcessorEditor::ArpLookAndFeel::fillTextEditorBackground (juce::Graphics& g, int width, int height, juce::TextEditor& /*editor*/)
+{
+    g.setColour (juce::Colours::darkblue.darker(2.f));
+    g.fillRoundedRectangle (juce::Rectangle<int>(0,0, width, height).toFloat(), 10.0f);
+    g.setColour (juce::Colours::green);
+    g.drawRoundedRectangle (juce::Rectangle<int>(0, 0, width, height).toFloat(), 10.0f,2.f);
+
+}
+
+void TeArAudioProcessorEditor::ArpLookAndFeel::drawTextEditorOutline (juce::Graphics& /*g*/, int /*width*/, int /*height*/, juce::TextEditor& /*editor*/)
+{
+    // We don't want an outline, so this is empty.
+}
+
 TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
@@ -17,16 +31,28 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
 
     auto& apvts = audioProcessor.getAPVTS();
 
-    // This lambda is called when the user finishes editing the label text
-    auto onTextChange = [this] { audioProcessor.setArpeggiatorPattern(arpeggiatorLabel.getText()); };
+    addAndMakeVisible(arpeggiatorEditor);
+    arpeggiatorEditor.setLookAndFeel(&arpLookAndFeel);
+    arpeggiatorEditor.setMultiLine(true);
+    arpeggiatorEditor.setFont(juce::Font(juce::Font::getDefaultMonospacedFontName(), 24.0f, juce::Font::plain));
+    arpeggiatorEditor.setColour(juce::TextEditor::backgroundColourId, juce::Colours::transparentBlack); // Background is drawn by LookAndFeel
+    arpeggiatorEditor.setColour(juce::TextEditor::textColourId, juce::Colours::lime);
+    arpeggiatorEditor.setColour(juce::CaretComponent::caretColourId, juce::Colours::green);
+    arpeggiatorEditor.setText(audioProcessor.getArpeggiatorPattern(), false);
 
-    arpeggiatorLabel.setEditable(true);
-    arpeggiatorLabel.setJustificationType(juce::Justification::centred);
-    arpeggiatorLabel.onEditorShow = [this] { arpeggiatorLabel.getCurrentTextEditor()->setInputRestrictions(0); }; // Allow any characters
-    arpeggiatorLabel.setFont(juce::Font(24.0f));
-    arpeggiatorLabel.onTextChange = onTextChange;
-    addAndMakeVisible(arpeggiatorLabel);
-    arpeggiatorLabel.setText(audioProcessor.getArpeggiatorPattern(), juce::dontSendNotification);
+    // This lambda contains the logic to validate and update the pattern.
+    auto validateAndSetPattern = [this] {
+        // Send the raw text from the editor (with newlines) directly to the processor.
+        audioProcessor.setArpeggiatorPattern(arpeggiatorEditor.getText());
+    };
+
+    // When Return is pressed, validate the pattern and give focus back to the main editor.
+    arpeggiatorEditor.onReturnKey = [this, validateAndSetPattern] {
+        validateAndSetPattern();
+        giveAwayKeyboardFocus(); // Or `getRootComponent()->grabKeyboardFocus()`
+    };
+    // Also validate when the editor loses focus (e.g., user clicks away).
+    arpeggiatorEditor.onFocusLost = validateAndSetPattern;
 
     addAndMakeVisible(chordMethodLabel);
     chordMethodLabel.setText("Chord Method", juce::dontSendNotification);
@@ -79,45 +105,61 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     }
     scaleTypeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, "scaleType", scaleTypeBox);
 
-    setSize (400, 350);
+    addAndMakeVisible(followMidiInButton);
+    followMidiInButton.setButtonText("Follow MIDI In");
+    followMidiInAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(apvts, "followMidiIn", followMidiInButton);
+
+
+    setSize (600, 320); // Increased height for the larger text editor
 }
 
 TeArAudioProcessorEditor::~TeArAudioProcessorEditor()
 {
     audioProcessor.removeChangeListener(this);
+    arpeggiatorEditor.setLookAndFeel(nullptr);
 }
 
 void TeArAudioProcessorEditor::changeListenerCallback (juce::ChangeBroadcaster* source)
 {
     // When the processor tells us something changed, update our manual controls.
-    arpeggiatorLabel.setText(audioProcessor.getArpeggiatorPattern(), juce::dontSendNotification);
+    arpeggiatorEditor.setText(audioProcessor.getArpeggiatorPattern(), false);
 }
 
 //==============================================================================
 void TeArAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    // (Our component is opaque, so we must completely fill the background with a solid colour)
-    g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
+    auto diagonale = (getLocalBounds().getTopLeft() - getLocalBounds().getBottomRight()).toFloat();
+    auto length = diagonale.getDistanceFromOrigin();
+    auto perpendicular = diagonale.rotatedAboutOrigin (juce::degreesToRadians (270.0f)) / length;
+    auto height = float (getWidth() * getHeight()) / length;
+    auto bluegreengrey = juce::Colour::fromFloatRGBA (0.15f, 0.15f, 0.25f, 1.0f);
+    juce::ColourGradient grad (bluegreengrey.darker().darker().darker(), perpendicular * height,
+                           bluegreengrey, perpendicular * -height, false);
+    g.setGradientFill(grad);
+    g.fillAll();
 }
 
 void TeArAudioProcessorEditor::resized()
 {
-    auto bounds = getLocalBounds().reduced(15);
+    auto bounds = getLocalBounds().reduced(10);
 
-    auto rowHeight = 40;
-    auto labelWidth = 85;
+    juce::FlexBox mainBox;
+    mainBox.flexDirection = juce::FlexBox::Direction::column;
+    juce::FlexBox hBox1, hBox2;
+    hBox1.flexDirection = juce::FlexBox::Direction::row;
+    hBox2.flexDirection = juce::FlexBox::Direction::row;
 
-    auto topRow = bounds.removeFromTop(rowHeight);
-    auto leftTop = topRow.removeFromLeft(topRow.getWidth() / 2).reduced(5, 0);
-    auto rightTop = topRow.reduced(5, 0);
-    chordMethodBox.setBounds(leftTop.withLeft(leftTop.getX() + labelWidth));
-    subdivisionBox.setBounds(rightTop.withLeft(rightTop.getX() + labelWidth));
-
-    auto middleRow = bounds.removeFromTop(rowHeight);
-    auto leftMiddle = middleRow.removeFromLeft(middleRow.getWidth() / 2).reduced(5, 0);
-    auto rightMiddle = middleRow.reduced(5, 0);
-    scaleRootBox.setBounds(leftMiddle.withLeft(leftMiddle.getX() + labelWidth));
-    scaleTypeBox.setBounds(rightMiddle.withLeft(rightMiddle.getX() + labelWidth));
-
-    arpeggiatorLabel.setBounds(bounds);
+    hBox1.items.add(juce::FlexItem(subdivisionLabel).withFlex(0.8f));
+    hBox1.items.add(juce::FlexItem(subdivisionBox).withFlex(.7f));
+    hBox1.items.add(juce::FlexItem(chordMethodLabel).withFlex(0.8f));
+    hBox1.items.add(juce::FlexItem(chordMethodBox).withFlex(1.f));
+    hBox2.items.add(juce::FlexItem(scaleRootLabel).withFlex(0.8f));
+    hBox2.items.add(juce::FlexItem(scaleRootBox).withFlex(.7f));
+    hBox2.items.add(juce::FlexItem(scaleTypeLabel).withFlex(0.8f));
+    hBox2.items.add(juce::FlexItem(scaleTypeBox).withFlex(0.6f));
+    hBox2.items.add(juce::FlexItem(followMidiInButton).withFlex(0.8f).withMargin(juce::FlexItem::Margin(0.f, 0.f, 0.f, 5.f)));
+    mainBox.items.add(juce::FlexItem(arpeggiatorEditor).withFlex(1.f).withMargin(10));
+    mainBox.items.add(juce::FlexItem(hBox1).withFlex(0.15f).withMargin(juce::FlexItem::Margin( 0.f,10.f,0.f,10.f)));
+    mainBox.items.add(juce::FlexItem(hBox2).withFlex(0.15f).withMargin(juce::FlexItem::Margin(0.f,10.f,0.f,10.f)));
+    mainBox.performLayout(bounds);
 }

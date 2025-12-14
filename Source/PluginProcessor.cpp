@@ -28,6 +28,7 @@ TeArAudioProcessor::TeArAudioProcessor()
     apvts.addParameterListener("chordMethod", this);
     apvts.addParameterListener("scaleRoot", this);
     apvts.addParameterListener("scaleType", this);
+    apvts.addParameterListener("followMidiIn", this);
 }
 
 TeArAudioProcessor::~TeArAudioProcessor()
@@ -36,6 +37,7 @@ TeArAudioProcessor::~TeArAudioProcessor()
     apvts.removeParameterListener("chordMethod", this);
     apvts.removeParameterListener("scaleRoot", this);
     apvts.removeParameterListener("scaleType", this);
+    apvts.removeParameterListener("followMidiIn", this);
 }
 
 //==============================================================================
@@ -209,34 +211,54 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
             case 2: // Single note
                 if (!heldNotes.isEmpty())
                 {
-                    // Get scale parameters from APVTS
-                    auto rootNoteIndex = static_cast<int>(apvts.getRawParameterValue("scaleRoot")->load());
+                    int lastNote = heldNotes.getLast();
+                    int lastNoteSemitone = lastNote % 12;
+
+                    auto followMidiIn = apvts.getRawParameterValue("followMidiIn")->load();
                     auto scaleTypeIndex = static_cast<int>(apvts.getRawParameterValue("scaleType")->load());
                     auto scaleType = static_cast<MidiTools::Scale::Type>(scaleTypeIndex);
 
-                    // Create the scale
-                    MidiTools::Scale currentScale(rootNoteIndex, scaleType);
-                    const auto& scaleNotes = currentScale.getNotes();
-
-                    // Find which degree of the scale the last played note corresponds to.
-                    int lastNote = heldNotes.getLast();
-                    int lastNoteSemitone = lastNote % 12;
-                    int degree = scaleNotes.indexOf(lastNoteSemitone);
-
-                    if (degree != -1) // If the note is in the scale
+                    if (followMidiIn)
                     {
+                        // The incoming note sets the root of the scale.
+                        // We update the parameter, which will also update the UI.
+                        apvts.getParameter("scaleRoot")->setValueNotifyingHost(lastNoteSemitone / 11.0f);
+
+                        MidiTools::Scale currentScale(lastNoteSemitone, scaleType);
                         // Set the arpeggiator's base octave from the played note.
                         arpeggiator.setBaseOctaveFromNote(lastNote);
-                        // Build the new chord from the scale and degree
-                        playedChord = MidiTools::Chord::fromScaleAndDegree(currentScale, degree);
+                        // The chord is built from the root of this new scale.
+                        playedChord = MidiTools::Chord::fromScaleAndDegree(currentScale, 0);
                     }
                     else
                     {
-                        // If note is not in scale, maybe just use the root? Or do nothing.
-                        // For now, we'll build from the root of the scale.
-                        // Set the arpeggiator's base octave from the played note.
-                        arpeggiator.setBaseOctaveFromNote(lastNote);
-                        playedChord = MidiTools::Chord::fromScaleAndDegree(currentScale, 0);
+                        // Use the fixed scale from the UI to find the degree of the played note.
+                        auto rootNoteIndex = static_cast<int>(apvts.getRawParameterValue("scaleRoot")->load());
+                        MidiTools::Scale currentScale(rootNoteIndex, scaleType);
+                        const auto& scaleNotes = currentScale.getNotes();
+                        int degree = scaleNotes.indexOf(lastNoteSemitone);
+
+                        if (degree != -1) // If the note is in the scale
+                        {
+                            arpeggiator.setBaseOctaveFromNote(lastNote);
+                            playedChord = MidiTools::Chord::fromScaleAndDegree(currentScale, degree);
+                        }
+                        else // Note is not in scale, find nearest below
+                        {
+                            int nearestDegree = -1;
+                            for (int i = 1; i < 12; ++i)
+                            {
+                                int semitoneToTest = (lastNoteSemitone - i + 12) % 12;
+                                int foundDegree = scaleNotes.indexOf(semitoneToTest);
+                                if (foundDegree != -1)
+                                {
+                                    nearestDegree = foundDegree;
+                                    break;
+                                }
+                            }
+                            arpeggiator.setBaseOctaveFromNote(lastNote);
+                            playedChord = MidiTools::Chord::fromScaleAndDegree(currentScale, nearestDegree != -1 ? nearestDegree : 0);
+                        }
                     }
                 }
                 break;
@@ -329,6 +351,7 @@ void TeArAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 
 void TeArAudioProcessor::setArpeggiatorPattern(const juce::String& pattern)
 {
+    // The raw pattern from the UI (with newlines) is stored and passed directly to the engine.
     arpeggiatorPattern = pattern;
     arpeggiator.setPattern(arpeggiatorPattern);
 }
@@ -355,6 +378,9 @@ void TeArAudioProcessor::parameterChanged (const juce::String& parameterID, floa
     else if (parameterID == "scaleType")
     {
     }
+    else if (parameterID == "followMidiIn")
+    {
+    }
 }
 
 juce::AudioProcessorValueTreeState::ParameterLayout TeArAudioProcessor::createParameters()
@@ -368,7 +394,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout TeArAudioProcessor::createPa
         chordMethods,
         0)); // Default to "Notes played"
 
-    juce::StringArray subdivisions = { "1/4", "1/4T", "1/8", "1/8T", "1/16", "1/16T", "1/32", "1/32T" };
+    juce::StringArray subdivisions = { "1/4", "1/4T", "1/8", "1/8T", "1/16", "1/16T", "1/32", "1/32T", "1/64", "1/64T" };
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         "subdivision",
         "Subdivision",
@@ -384,12 +410,17 @@ juce::AudioProcessorValueTreeState::ParameterLayout TeArAudioProcessor::createPa
         0 // Default to C
     ));
 
-    juce::StringArray scaleTypes = { "Major", "Melodic Minor", "Harmonic Minor", "Bartok" };
     layout.add(std::make_unique<juce::AudioParameterChoice>(
         "scaleType",
         "Scale Type",
-        scaleTypes,
+        MidiTools::Scale::getScaleTypeNames(),
         0 // Default to Major
+    ));
+
+    layout.add(std::make_unique<juce::AudioParameterBool>(
+        "followMidiIn",
+        "Follow MIDI In",
+        false // Default to false
     ));
 
     return layout;
