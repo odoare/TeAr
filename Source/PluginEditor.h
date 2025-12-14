@@ -14,7 +14,8 @@
 //==============================================================================
 /**
 */
-class TeArAudioProcessorEditor  : public juce::AudioProcessorEditor,
+class TeArAudioProcessorEditor  : public juce::AudioProcessorEditor, // NOLINT
+                                  public juce::Timer,
                                   public juce::ChangeListener
 {
 public:
@@ -23,6 +24,7 @@ public:
 
     //==============================================================================
     void changeListenerCallback (juce::ChangeBroadcaster* source) override;
+    void timerCallback() override;
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -89,6 +91,8 @@ private:
 
     juce::ToggleButton followMidiInButton;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> followMidiInAttachment;
+
+    int lastStepIndex = -1;
 
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TeArAudioProcessorEditor)

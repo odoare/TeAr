@@ -109,6 +109,9 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     followMidiInButton.setButtonText("Follow MIDI In");
     followMidiInAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(apvts, "followMidiIn", followMidiInButton);
 
+    // Start the timer to update the UI 30 times per second
+    startTimerHz(30);
+
 
     setSize (600, 320); // Increased height for the larger text editor
 }
@@ -117,6 +120,7 @@ TeArAudioProcessorEditor::~TeArAudioProcessorEditor()
 {
     audioProcessor.removeChangeListener(this);
     arpeggiatorEditor.setLookAndFeel(nullptr);
+    stopTimer();
 }
 
 void TeArAudioProcessorEditor::changeListenerCallback (juce::ChangeBroadcaster* source)
@@ -125,6 +129,35 @@ void TeArAudioProcessorEditor::changeListenerCallback (juce::ChangeBroadcaster* 
     arpeggiatorEditor.setText(audioProcessor.getArpeggiatorPattern(), false);
 }
 
+void TeArAudioProcessorEditor::timerCallback()
+{
+    // Only show the highlight if the user is NOT editing the text.
+    if (!arpeggiatorEditor.hasKeyboardFocus(true))
+    {
+        int currentStep = audioProcessor.getArpeggiatorCurrentStep();
+    
+        // Only update if the step has changed to avoid unnecessary redrawing
+        if (currentStep != lastStepIndex)
+        {
+            lastStepIndex = currentStep;
+    
+            const auto pattern = audioProcessor.getArpeggiatorPattern();
+            int stepStart = audioProcessor.getArpeggiator().getPatternIndexForStep(currentStep);
+            int stepEnd = audioProcessor.getArpeggiator().getPatternIndexForStep(currentStep + 1);
+    
+            // If the next step is at index 0, it means we've looped, so highlight to the end.
+            if (stepEnd <= stepStart)
+                stepEnd = pattern.length();
+    
+            arpeggiatorEditor.setHighlightedRegion({ stepStart, stepEnd });
+        }
+    }
+    else if (lastStepIndex != -1) // If we are editing, clear the highlight.
+    {
+        arpeggiatorEditor.setHighlightedRegion({});
+        lastStepIndex = -1; // Reset to ensure highlight updates immediately when focus is lost.
+    }
+}
 //==============================================================================
 void TeArAudioProcessorEditor::paint (juce::Graphics& g)
 {

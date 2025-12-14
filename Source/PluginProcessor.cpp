@@ -285,7 +285,7 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     // This is placed after the clear() call to ensure the message is not erased.
     if (transportJustStopped)
     {
-        midiMessages.addEvents(arpeggiator.reset(), 0, -1, 0);
+        midiMessages.addEvents(arpeggiator.reset(), 0, -1, 0); // Reset without position info
     }
 
 
@@ -360,6 +360,16 @@ void TeArAudioProcessor::setArpeggiatorPattern(const juce::String& pattern)
 
 const juce::String& TeArAudioProcessor::getArpeggiatorPattern() const { return arpeggiatorPattern; }
 
+int TeArAudioProcessor::getArpeggiatorCurrentStep() const
+{
+    return arpeggiator.getCurrentStepIndex();
+}
+
+const Arpeggiator& TeArAudioProcessor::getArpeggiator() const
+{
+    return arpeggiator;
+}
+
 void TeArAudioProcessor::parameterChanged (const juce::String& parameterID, float newValue)
 {
     if (parameterID == "subdivision")
@@ -371,7 +381,7 @@ void TeArAudioProcessor::parameterChanged (const juce::String& parameterID, floa
     {
         // Pass the integer index of the choice to the arpeggiator
         arpeggiator.setChordMethod(static_cast<int>(newValue));
-        // Reset arpeggiator to clear any old state (like a modified octave)
+        // Reset arpeggiator to clear any old state
         arpeggiator.reset();
     }
     else if (parameterID == "scaleRoot")

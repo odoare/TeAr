@@ -62,6 +62,12 @@ public:
     void setArpeggiatorPattern (const juce::String& pattern);
     const juce::String& getArpeggiatorPattern() const;
 
+    // Getter for the UI to know the current step
+    int getArpeggiatorCurrentStep() const;
+
+    // Getter for the UI to access arpeggiator methods
+    const Arpeggiator& getArpeggiator() const;
+
     juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
 
 private:
