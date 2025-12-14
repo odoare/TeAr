@@ -184,6 +184,8 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
         if (msg.isNoteOn())
         {
             heldNotes.addIfNotAlreadyThere(msg.getNoteNumber());
+            // Update the arpeggiator's velocity based on the incoming note's velocity.
+            arpeggiator.setGlobalVelocityFromMidi(msg.getVelocity());
             notesChanged = true;
             std::cout << "Note on: " << msg.getNoteNumber() << std::endl;
         }
