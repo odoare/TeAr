@@ -370,6 +370,11 @@ const Arpeggiator& TeArAudioProcessor::getArpeggiator() const
     return arpeggiator;
 }
 
+bool TeArAudioProcessor::areNotesHeld() const
+{
+    return !heldNotes.isEmpty();
+}
+
 void TeArAudioProcessor::parameterChanged (const juce::String& parameterID, float newValue)
 {
     if (parameterID == "subdivision")

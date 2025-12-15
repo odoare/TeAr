@@ -69,6 +69,7 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     }
     // Now create the attachment, which will sync the selection with the parameter's current value.
     chordMethodAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, "chordMethod", chordMethodBox);
+    chordMethodBox.onChange = [this] { updateScaleDisplay(); };
 
     addAndMakeVisible(subdivisionLabel);
     subdivisionLabel.setText("Subdivision", juce::dontSendNotification);
@@ -94,6 +95,7 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
         scaleRootBox.addItemList(parameter->choices, 1);
     }
     scaleRootAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, "scaleRoot", scaleRootBox);
+    scaleRootBox.onChange = [this] { updateScaleDisplay(); };
 
     addAndMakeVisible(scaleTypeLabel);
     scaleTypeLabel.setText("Scale Type", juce::dontSendNotification);
@@ -106,16 +108,22 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
         scaleTypeBox.addItemList(parameter->choices, 1);
     }
     scaleTypeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, "scaleType", scaleTypeBox);
+    scaleTypeBox.onChange = [this] { updateScaleDisplay(); };
 
     addAndMakeVisible(followMidiInButton);
     followMidiInButton.setButtonText("Follow MIDI In");
     followMidiInAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(apvts, "followMidiIn", followMidiInButton);
 
+    addAndMakeVisible(scaleComponent);
+
     // Start the timer to update the UI 30 times per second
     startTimerHz(30);
 
+    // Initial update of the scale component to show the default scale
+    updateScaleDisplay();
 
-    setSize (600, 320); // Increased height for the larger text editor
+
+    setSize (600, 360); // Increased height for the scale component
 }
 
 TeArAudioProcessorEditor::~TeArAudioProcessorEditor()
@@ -133,6 +141,30 @@ void TeArAudioProcessorEditor::changeListenerCallback (juce::ChangeBroadcaster* 
 
 void TeArAudioProcessorEditor::timerCallback()
 {
+    const auto& arpeggiator = audioProcessor.getArpeggiator();
+    const auto& chord = arpeggiator.getChord();
+    const int currentNote = arpeggiator.getLastPlayedNote();
+
+    const bool notesAreHeld = audioProcessor.areNotesHeld();
+
+    if (notesAreHeld)
+    {
+        // Arpeggiator is active (playing a note or on a rest)
+        auto chordMethod = static_cast<int>(audioProcessor.getAPVTS().getRawParameterValue("chordMethod")->load());
+        const auto& notes = (chordMethod == 1) ? chord.getRawNotes() : chord.getDegrees();
+
+        if (!notes.isEmpty())
+        {
+            // currentNote will be -1 on a rest, which is what updateScale expects.
+            scaleComponent.updateScale(notes, notes.getFirst(), currentNote);
+        }
+    }
+    else
+    {
+        // Arpeggiator is fully stopped.
+        updateScaleDisplay();
+    }
+
     // Only show the highlight if the user is NOT editing the text.
     if (!arpeggiatorEditor.hasKeyboardFocus(true))
     {
@@ -159,6 +191,29 @@ void TeArAudioProcessorEditor::timerCallback()
         arpeggiatorEditor.setHighlightedRegion({});
         lastStepIndex = -1; // Reset to ensure highlight updates immediately when focus is lost.
     }
+}
+
+void TeArAudioProcessorEditor::updateScaleDisplay()
+{
+    auto& apvts = audioProcessor.getAPVTS();
+    auto chordMethod = static_cast<int>(apvts.getRawParameterValue("chordMethod")->load());
+
+    // When not playing, only show the scale if the method is "Single note".
+    if (chordMethod == 2) // "Single note"
+    {
+        auto scaleRoot = static_cast<int>(apvts.getRawParameterValue("scaleRoot")->load());
+        auto scaleType = static_cast<MidiTools::Scale::Type>(static_cast<int>(apvts.getRawParameterValue("scaleType")->load()));
+
+        currentDisplayScale = MidiTools::Scale(scaleRoot, scaleType);
+
+        // Update the component with the scale notes, but with -1 for root and current note
+        // to indicate that no note is currently playing. The root note should be shown.
+        scaleComponent.updateScale(currentDisplayScale.getNotes(), currentDisplayScale.getRootNote(), -1);
+    }
+    else // For "Notes played" or "Chord played as is", clear the display when not playing.
+        scaleComponent.updateScale({}, -1, -1);
+
+    lastPlayedArpNote = -1; // Reset the last played note tracker
 }
 //==============================================================================
 void TeArAudioProcessorEditor::paint (juce::Graphics& g)
@@ -193,8 +248,9 @@ void TeArAudioProcessorEditor::resized()
     hBox2.items.add(juce::FlexItem(followMidiInButton).withFlex(0.6f).withMargin(juce::FlexItem::Margin(0.f, 0.f, 0.f, 5.f)));
     hBox2.items.add(juce::FlexItem(scaleTypeLabel).withFlex(0.6f));
     hBox2.items.add(juce::FlexItem(scaleTypeBox).withFlex(1.f));
+    mainBox.items.add(juce::FlexItem(scaleComponent).withFlex(0.2f).withMargin(juce::FlexItem::Margin(5.f, 10.f, 0.f, 10.f)));
     mainBox.items.add(juce::FlexItem(arpeggiatorEditor).withFlex(1.f).withMargin(10));
-    mainBox.items.add(juce::FlexItem(hBox1).withFlex(0.15f).withMargin(juce::FlexItem::Margin( 0.f,10.f,0.f,10.f)));
-    mainBox.items.add(juce::FlexItem(hBox2).withFlex(0.15f).withMargin(juce::FlexItem::Margin(0.f,10.f,0.f,10.f)));
+    mainBox.items.add(juce::FlexItem(hBox1).withFlex(0.12f).withMargin(juce::FlexItem::Margin( 0.f,10.f,0.f,10.f)));
+    mainBox.items.add(juce::FlexItem(hBox2).withFlex(0.12f).withMargin(juce::FlexItem::Margin(0.f,10.f,0.f,10.f)));
     mainBox.performLayout(bounds);
 }

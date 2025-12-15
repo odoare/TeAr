@@ -5,6 +5,10 @@
               pluginCharacteristicsValue="pluginIsMidiEffectPlugin,pluginProducesMidiOut,pluginWantsMidiIn">
   <MAINGROUP id="CrGhnX" name="TeAr">
     <GROUP id="{CC837EB5-75FC-F5E2-72FA-39200551468C}" name="Source">
+      <FILE id="fapJYP" name="ScaleComponent.cpp" compile="1" resource="0"
+            file="Source/ScaleComponent.cpp"/>
+      <FILE id="MGOz4c" name="ScaleComponent.h" compile="0" resource="0"
+            file="Source/ScaleComponent.h"/>
       <FILE id="c0XIdE" name="MidiTools.h" compile="0" resource="0" file="Source/libs/cppMusicTools/MidiTools.h"/>
       <FILE id="m4bUmK" name="Arpeggiator.h" compile="0" resource="0" file="Source/libs/cppMusicTools/Arpeggiator.h"/>
       <FILE id="K03YE8" name="PluginProcessor.cpp" compile="1" resource="0"

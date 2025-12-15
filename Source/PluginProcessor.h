@@ -68,6 +68,9 @@ public:
     // Getter for the UI to access arpeggiator methods
     const Arpeggiator& getArpeggiator() const;
 
+    // Getter for the UI to know if notes are being held
+    bool areNotesHeld() const;
+
     juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
 
 private:

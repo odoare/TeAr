@@ -10,6 +10,7 @@
 
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
+#include "ScaleComponent.h"
 
 //==============================================================================
 /**
@@ -25,6 +26,8 @@ public:
     //==============================================================================
     void changeListenerCallback (juce::ChangeBroadcaster* source) override;
     void timerCallback() override;
+
+    void updateScaleDisplay();
 
     void paint (juce::Graphics&) override;
     void resized() override;
@@ -91,6 +94,10 @@ private:
 
     juce::ToggleButton followMidiInButton;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> followMidiInAttachment;
+
+    ScaleComponent scaleComponent;
+    int lastPlayedArpNote = -1;
+    MidiTools::Scale currentDisplayScale {0, MidiTools::Scale::Type::Major};
 
     int lastStepIndex = -1;
 
