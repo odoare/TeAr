@@ -38,6 +38,8 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     arpeggiatorEditor.setColour(juce::TextEditor::backgroundColourId, juce::Colours::transparentBlack); // Background is drawn by LookAndFeel
     arpeggiatorEditor.setColour(juce::TextEditor::textColourId, juce::Colours::lime);
     arpeggiatorEditor.setColour(juce::CaretComponent::caretColourId, juce::Colours::green);
+    arpeggiatorEditor.setColour(juce::TextEditor::highlightColourId, juce::Colours::lime);
+    arpeggiatorEditor.setColour(juce::TextEditor::highlightedTextColourId, juce::Colours::black);
     arpeggiatorEditor.setText(audioProcessor.getArpeggiatorPattern(), false);
 
     // This lambda contains the logic to validate and update the pattern.
@@ -183,14 +185,14 @@ void TeArAudioProcessorEditor::resized()
     hBox2.flexDirection = juce::FlexBox::Direction::row;
 
     hBox1.items.add(juce::FlexItem(subdivisionLabel).withFlex(0.8f));
-    hBox1.items.add(juce::FlexItem(subdivisionBox).withFlex(.7f));
-    hBox1.items.add(juce::FlexItem(chordMethodLabel).withFlex(0.8f));
-    hBox1.items.add(juce::FlexItem(chordMethodBox).withFlex(1.f));
+    hBox1.items.add(juce::FlexItem(subdivisionBox).withFlex(.5f));
+    hBox1.items.add(juce::FlexItem(chordMethodLabel).withFlex(1.f));
+    hBox1.items.add(juce::FlexItem(chordMethodBox).withFlex(1.2f));
     hBox2.items.add(juce::FlexItem(scaleRootLabel).withFlex(0.8f));
-    hBox2.items.add(juce::FlexItem(scaleRootBox).withFlex(.7f));
-    hBox2.items.add(juce::FlexItem(scaleTypeLabel).withFlex(0.8f));
-    hBox2.items.add(juce::FlexItem(scaleTypeBox).withFlex(0.6f));
-    hBox2.items.add(juce::FlexItem(followMidiInButton).withFlex(0.8f).withMargin(juce::FlexItem::Margin(0.f, 0.f, 0.f, 5.f)));
+    hBox2.items.add(juce::FlexItem(scaleRootBox).withFlex(.5f));
+    hBox2.items.add(juce::FlexItem(followMidiInButton).withFlex(0.6f).withMargin(juce::FlexItem::Margin(0.f, 0.f, 0.f, 5.f)));
+    hBox2.items.add(juce::FlexItem(scaleTypeLabel).withFlex(0.6f));
+    hBox2.items.add(juce::FlexItem(scaleTypeBox).withFlex(1.f));
     mainBox.items.add(juce::FlexItem(arpeggiatorEditor).withFlex(1.f).withMargin(10));
     mainBox.items.add(juce::FlexItem(hBox1).withFlex(0.15f).withMargin(juce::FlexItem::Margin( 0.f,10.f,0.f,10.f)));
     mainBox.items.add(juce::FlexItem(hBox2).withFlex(0.15f).withMargin(juce::FlexItem::Margin(0.f,10.f,0.f,10.f)));
