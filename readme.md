@@ -1,6 +1,6 @@
 # TeAr - Polyrhythmic MIDI Arpeggiator
 
-![](doc/TeAR.png)
+![TeAr](./doc/TeAR.png)
 
 TeAr is an advanced polyrhythmic and polyphonic MIDI arpeggiator plugin. It features four independent arpeggiator engines, each with its own pattern, subdivision, and MIDI output channel. This allows for the creation of complex, evolving musical phrases and textures.
 
