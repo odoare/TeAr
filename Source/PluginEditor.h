@@ -47,6 +47,7 @@ private:
     };
 
     ArpLookAndFeel arpLookAndFeel;
+    fxme::FxmeLookAndFeel fxmeLookAndFeel;
 
     // A custom TextEditor to handle Return and Shift+Return key presses.
     class ArpeggiatorTextEditor : public juce::TextEditor

@@ -183,8 +183,9 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
         auto* button = new juce::ToggleButton();
         arpeggiatorOnButtons.add(button);
         addAndMakeVisible(button);
+        button->setLookAndFeel(&fxmeLookAndFeel);
         button->setButtonText(""); // Text is handled by the label now
-        button->setColour(juce::ToggleButton::textColourId, arpColour);
+        button->setColour(juce::ToggleButton::tickColourId, arpColour);
         button->setToggleState(audioProcessor.isArpeggiatorOn(i), juce::dontSendNotification);
 
         auto paramID = "arpOn" + juce::String(i + 1);
@@ -265,7 +266,7 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     addAndMakeVisible(scaleComponent);
 
     // Start the timer to update the UI 30 times per second
-    startTimerHz(30);
+    startTimerHz(60);
 
     // Initial update of the scale component to show the default scale
     updateScaleDisplay();
@@ -454,7 +455,7 @@ void TeArAudioProcessorEditor::resized()
     controlsBox.items.add(juce::FlexItem(scaleTypeBox).withFlex(1.0f));
 
     mainBox.items.add(juce::FlexItem(controlsBox).withFlex(0.12f).withMargin(juce::FlexItem::Margin(0.f, 10.f, 0.f, 10.f)));
-    mainBox.items.add(juce::FlexItem(scaleComponent).withFlex(0.15f).withMargin(juce::FlexItem::Margin(5.f, 10.f, 0.f, 10.f)));
+    mainBox.items.add(juce::FlexItem(scaleComponent).withFlex(0.17f).withMargin(juce::FlexItem::Margin(5.f, 10.f, 0.f, 10.f)));
     mainBox.items.add(juce::FlexItem(editorBox).withFlex(1.0f).withMargin(10));
     mainBox.items.add(juce::FlexItem(subdivisionRowBox).withFlex(0.12f).withMargin(juce::FlexItem::Margin(0.f, 10.f, 0.f, 10.f)));
     mainBox.performLayout(bounds);

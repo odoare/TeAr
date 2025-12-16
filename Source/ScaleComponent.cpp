@@ -53,7 +53,7 @@ void ScaleComponent::paint(juce::Graphics &g)
         // Draw root note first, so current notes can be drawn on top if they overlap.
         if (isRootNote)
         {
-            g.setColour(rootHighlightColour.withAlpha(0.5f));
+            g.setColour(rootHighlightColour);
             g.drawRoundedRectangle(x+20.f, 5.0f, noteWidth-40.f, height-10.f,10.0f,2.f);
         }
 
@@ -67,7 +67,7 @@ void ScaleComponent::paint(juce::Graphics &g)
 
                 if ((note % 12) == i)
                 {
-                    g.setColour(getColourForArp(arpIndex).withAlpha(0.9f));
+                    g.setColour(getColourForArp(arpIndex).withAlpha(0.7f));
                     g.fillRoundedRectangle(x+20.f, 5.0f, noteWidth - 40.f, height - 10.f, 10.0f);
                 }
             }
