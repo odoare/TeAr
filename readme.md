@@ -1,4 +1,5 @@
-# TeAr - Polyrhythmic MIDI Arpeggiator
+# TeAr - The Text Arpeggiator
+A Polyphonic and Polyrhythmic MIDI Arpeggiator
 
 ![TeAr](./doc/TeAr.png)
 
@@ -22,7 +23,7 @@ The pattern string consists of characters that define the arpeggio's behavior at
 
 | Command | Description |
 | :--- | :--- |
-| `0` to `6` | Plays a specific degree of the chord/scale (0=fundamental, 1=third, ..., 6=thirteenth). |
+| `1` to `9` | Plays a specific degree of the chord/scale (1=fundamental, 2=second, ..., 7=seventh). |
 | `_` | Sustains the previously played note. |
 | `.` | A rest; no note is played. |
 | `+` | Plays the next degree in the chord (e.g., from 1 to 2). |
@@ -46,7 +47,11 @@ Velocity is specified with a level from 1-8, which maps to a MIDI velocity from 
 | Command | Description | Example |
 | :--- | :--- | :--- |
 | `vN` | **Local**: Sets velocity for the next note only. | `v80` (plays root at max velocity) |
+| `v+` | **Local**: Increases velocity for the next note only. | `v+0` (plays root at the next velocity level) |
+| `v-` | **Local**: Decreases velocity for the next note only. | `v-0` (plays root at a lower velocity level) |
 | `VN` | **Global**: Sets velocity for all subsequent notes until the next `V` command. | `V40` (sets global velocity to 64) |
+| `V+` | **Global**: Increases velocity for all subsequent notes until the next `V` command. | `V+0` (increases global velocity to the next level) |
+| `V-` | **Global**: Decreases velocity for all subsequent notes until the next `V` command. | `V-0` (decreases global velocity to the previous level) |
 
 ### Octave Modifiers
 
@@ -102,3 +107,37 @@ Velocity is specified with a level from 1-8, which maps to a MIDI velocity from 
 | Whole Tone | 0, 2, 4, 6, 8, 10 |
 | Octatonic (Half-Whole) | 0, 1, 3, 4, 6, 7, 9, 10 |
 | Octatonic (Whole-Half) | 0, 2, 3, 5, 6, 8, 9, 11 |
+
+---
+
+## Building from Source
+
+This project is built using the JUCE framework and requires the Projucer to generate the necessary project files for your IDE.
+
+1.  **Clone the Repository**
+
+    Clone the repository using the `--recursive` flag to ensure that the `cppMusicTools` submodule is also downloaded:
+
+    ```bash
+    git clone --recursive https://github.com/your-username/TeAr.git
+    ```
+
+    If you have already cloned the project without the submodules, you can initialize them with:
+    ```bash
+    git submodule update --init --recursive
+    ```
+
+2.  **Configure with Projucer**
+
+    *   Open the `TeAr.jucer` file located in the project's root directory.
+    *   In the Projucer's global settings (File > Global Paths...), make sure the "Path to JUCE" is set to the location of your JUCE modules.
+    *   Click "Save Project" or "Save and Open in IDE..." to generate the build files for your system (e.g., a Visual Studio Solution or an Xcode project).
+
+3.  **Compile**
+
+    Open the generated project in your IDE (Visual Studio, Xcode, etc.) and build the "TeAr" target.
+
+---
+
+## Contact
+olivier.doare@ensta.fr
