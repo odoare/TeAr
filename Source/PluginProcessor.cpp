@@ -447,6 +447,25 @@ void TeArAudioProcessor::parameterChanged (const juce::String& parameterID, floa
         if (juce::isPositiveAndBelow(arpIndex, arpeggiatorOnStates.size()))
         {
             arpeggiatorOnStates.set(arpIndex, newValue > 0.5f);
+
+            // If we just turned an arp ON and the DAW is not playing, sync it to another running arp.
+            if (newValue > 0.5f && !wasPlaying)
+            {
+                double masterSamplesUntilNext = -1.0;
+                // Find a running arpeggiator to use as the master clock
+                for (int i = 0; i < arpeggiators.size(); ++i)
+                {
+                    if (i != arpIndex && arpeggiatorOnStates[i])
+                    {
+                        masterSamplesUntilNext = arpeggiators[i].getSamplesUntilNextNote();
+                        break;
+                    }
+                }
+
+                // If we found a master, sync the newly enabled arpeggiator to it.
+                if (masterSamplesUntilNext >= 0.0)
+                    arpeggiators.getReference(arpIndex).setSamplesUntilNextNote(masterSamplesUntilNext);
+            }
         }
     }
     if (parameterID.startsWith("midiChannel"))
