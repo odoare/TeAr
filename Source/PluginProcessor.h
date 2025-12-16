@@ -59,14 +59,15 @@ public:
     void parameterChanged(const juce::String& parameterID, float newValue) override;
 
     // Getter and Setter for our custom string parameter
-    void setArpeggiatorPattern (const juce::String& pattern);
-    const juce::String& getArpeggiatorPattern() const;
+    void setArpeggiatorPattern (int index, const juce::String& pattern);
+    const juce::String& getArpeggiatorPattern(int index) const;
+    bool isArpeggiatorOn(int index) const;
 
     // Getter for the UI to know the current step
-    int getArpeggiatorCurrentStep() const;
+    int getArpeggiatorCurrentStep(int index) const;
 
     // Getter for the UI to access arpeggiator methods
-    const Arpeggiator& getArpeggiator() const;
+    const Arpeggiator& getArpeggiator(int index) const;
 
     // Getter for the UI to know if notes are being held
     bool areNotesHeld() const;
@@ -74,15 +75,17 @@ public:
     juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
 
 private:
-    juce::String arpeggiatorPattern = "0 1 2";
+    juce::StringArray arpeggiatorPatterns;
 
     juce::AudioProcessorValueTreeState apvts;
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
 
     double lastKnownBPM = 120.0;
     bool wasPlaying = false;
-
-    Arpeggiator arpeggiator;
+    juce::Array<bool> arpeggiatorOnStates;
+    juce::Array<int> arpeggiatorMidiChannels;
+    
+    juce::Array<Arpeggiator> arpeggiators;
     juce::Array<int> heldNotes;
 
     //==============================================================================

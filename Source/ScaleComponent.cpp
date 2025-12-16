@@ -24,9 +24,9 @@ void ScaleComponent::paint(juce::Graphics &g)
     // Background
     // g.fillAll(juce::Colours::darkblue.darker(2.f));
     g.setColour (juce::Colours::darkblue.darker(2.f));
-    g.fillRoundedRectangle (juce::Rectangle<int>(getLocalBounds().reduced(2)).toFloat(), 10.0f);
-    g.setColour (juce::Colours::green);
-    g.drawRoundedRectangle (juce::Rectangle<int>(getLocalBounds().reduced(2)).toFloat(), 10.0f, 2.f);
+    g.fillRoundedRectangle (getLocalBounds().toFloat(), 10.0f);
+    g.setColour (juce::Colours::white);
+    g.drawRoundedRectangle (getLocalBounds().toFloat(), 10.0f, 2.f);
 
     const int numNotes = 12;
     const float width = (float)getWidth();
@@ -36,9 +36,8 @@ void ScaleComponent::paint(juce::Graphics &g)
     static const juce::String noteNames[] = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
 
     const juce::Colour tickColour = juce::Colours::grey;
-    const juce::Colour scaleTickColour = juce::Colours::lime;
-    const juce::Colour rootHighlightColour = juce::Colours::yellow;
-    const juce::Colour currentNoteHighlightColour = juce::Colours::green;
+    const juce::Colour scaleTickColour = juce::Colours::white;
+    const juce::Colour rootHighlightColour = juce::Colours::white;
 
     for (int i = 0; i < numNotes; ++i)
     {
@@ -49,20 +48,30 @@ void ScaleComponent::paint(juce::Graphics &g)
                                                [i](int note) { return (note % 12) == i; });
 
         const bool isRootNote = (i == (rootNote % 12));
-        const bool isCurrentNote = (i == (currentNote % 12));
 
         // --- Draw Highlights ---
-        if (isCurrentNote)
-        {
-            g.setColour(currentNoteHighlightColour.withAlpha(0.9f));
-            g.fillRoundedRectangle(x, 0.0f, noteWidth-2.f, height-2.f,10.0f);
-        }
-        else if (isRootNote)
+        // Draw root note first, so current notes can be drawn on top if they overlap.
+        if (isRootNote)
         {
             g.setColour(rootHighlightColour.withAlpha(0.5f));
-            g.fillRoundedRectangle(x, 0.0f, noteWidth-2.f, height-2.f,10.0f);
+            g.drawRoundedRectangle(x+20.f, 5.0f, noteWidth-40.f, height-10.f,10.0f,2.f);
         }
 
+        // Draw highlights for all currently playing notes
+        for (const auto& noteInfo : currentNotes)
+        {
+            if (auto* obj = noteInfo.getDynamicObject())
+            {
+                int note = obj->getProperty("note");
+                int arpIndex = obj->getProperty("arpIndex");
+
+                if ((note % 12) == i)
+                {
+                    g.setColour(getColourForArp(arpIndex).withAlpha(0.9f));
+                    g.fillRoundedRectangle(x+20.f, 5.0f, noteWidth - 40.f, height - 10.f, 10.0f);
+                }
+            }
+        }
         // --- Draw Ticks ---
         float tickHeight = height * 0.3f;
         float tickThickness = 1.0f;
@@ -70,7 +79,7 @@ void ScaleComponent::paint(juce::Graphics &g)
         if (isNoteInScale)
         {
             g.setColour(scaleTickColour);
-            tickHeight = height * 0.35f; // Make ticks for notes in the scale longer
+            tickHeight = height * 0.3f; // Make ticks for notes in the scale longer
             tickThickness = 4.f;
         }
         else
@@ -89,10 +98,22 @@ void ScaleComponent::paint(juce::Graphics &g)
     }
 }
 
-void ScaleComponent::updateScale(const juce::Array<int> &newScaleNotes, int newRootNote, int newCurrentNote)
+void ScaleComponent::updateScale(const juce::Array<int> &newScaleNotes, int newRootNote, const juce::Array<juce::var>& newCurrentNotes)
 {
   scaleNotes = newScaleNotes;
   rootNote = newRootNote;
-  currentNote = newCurrentNote;
+  currentNotes = newCurrentNotes;
   repaint();
+}
+
+juce::Colour ScaleComponent::getColourForArp(int arpIndex) const
+{
+    switch (arpIndex)
+    {
+        case 0: return juce::Colours::lime;
+        case 1: return juce::Colours::cyan;
+        case 2: return juce::Colours::magenta;
+        case 3: return juce::Colours::yellow;
+        default: return juce::Colours::green;
+    }
 }

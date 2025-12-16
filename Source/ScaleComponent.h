@@ -22,10 +22,12 @@ public:
 
     void paint(juce::Graphics& g) override;
 
-    void updateScale(const juce::Array<int>& newScaleNotes, int newRootNote, int newCurrentNote);
+    void updateScale(const juce::Array<int> &newScaleNotes, int newRootNote, const juce::Array<juce::var>& newCurrentNotes);
     
 private:
     juce::Array<int> scaleNotes;
     int rootNote = -1;
-    int currentNote = -1;
+    juce::Array<juce::var> currentNotes; // Array of objects: { note: 60, arpIndex: 0 }
+
+    juce::Colour getColourForArp(int arpIndex) const;
 };

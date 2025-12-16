@@ -10,11 +10,11 @@
 #include "PluginEditor.h"
 
 //==============================================================================
-void TeArAudioProcessorEditor::ArpLookAndFeel::fillTextEditorBackground (juce::Graphics& g, int width, int height, juce::TextEditor& /*editor*/)
+void TeArAudioProcessorEditor::ArpLookAndFeel::fillTextEditorBackground (juce::Graphics& g, int width, int height, juce::TextEditor& editor)
 {
     g.setColour (juce::Colours::darkblue.darker(2.f));
     g.fillRoundedRectangle (juce::Rectangle<int>(0,0, width, height).toFloat(), 10.0f);
-    g.setColour (juce::Colours::green);
+    g.setColour (editor.findColour(juce::TextEditor::outlineColourId));
     g.drawRoundedRectangle (juce::Rectangle<int>(0, 0, width, height).toFloat(), 10.0f,2.f);
 
 }
@@ -59,7 +59,7 @@ void TeArAudioProcessorEditor::ArpLookAndFeel::drawComboBox (juce::Graphics& g, 
     g.setColour(juce::Colours::darkblue.darker(2.f));
     g.fillPath(p);
 
-    g.setColour(juce::Colours::green);
+    g.setColour(box.findColour(juce::ComboBox::outlineColourId));
     g.strokePath(p, juce::PathStrokeType(2.0f));
 
     auto arrowZone = juce::Rectangle<int> (width - 30, 0, 20, height);
@@ -78,43 +78,59 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
 {
     audioProcessor.addChangeListener(this);
 
+    lastStepIndices.insertMultiple(0, -1, 4);
+
     auto& apvts = audioProcessor.getAPVTS();
 
-    addAndMakeVisible(arpeggiatorEditor);
-    arpeggiatorEditor.setLookAndFeel(&arpLookAndFeel);
-    arpeggiatorEditor.setMultiLine(true);
-    arpeggiatorEditor.setFont(juce::Font(juce::Font::getDefaultMonospacedFontName(), 24.0f, juce::Font::plain));
-    arpeggiatorEditor.setColour(juce::TextEditor::backgroundColourId, juce::Colours::transparentBlack); // Background is drawn by LookAndFeel
-    arpeggiatorEditor.setColour(juce::TextEditor::textColourId, juce::Colours::lime);
-    arpeggiatorEditor.setColour(juce::CaretComponent::caretColourId, juce::Colours::green);
-    arpeggiatorEditor.setColour(juce::TextEditor::highlightColourId, juce::Colours::lime);
-    arpeggiatorEditor.setColour(juce::TextEditor::highlightedTextColourId, juce::Colours::black);
-    arpeggiatorEditor.setText(audioProcessor.getArpeggiatorPattern(), false);
+    const auto neutralColour = juce::Colours::white;
 
-    // This lambda contains the logic to validate and update the pattern.
-    auto validateAndSetPattern = [this] {
-        // Send the raw text from the editor (with newlines) directly to the processor.
-        audioProcessor.setArpeggiatorPattern(arpeggiatorEditor.getText());
-    };
+    for (int i = 0; i < 4; ++i)
+    {
+        juce::Colour arpColour = juce::Colours::lime; // Default for Arp 1
+        if (i == 1) arpColour = juce::Colours::cyan;
+        else if (i == 2) arpColour = juce::Colours::magenta;
+        else if (i == 3) arpColour = juce::Colours::yellow;
+        auto* editor = new ArpeggiatorTextEditor();
+        arpeggiatorEditors.add(editor);
+        addAndMakeVisible(editor);
+        editor->setLookAndFeel(&arpLookAndFeel);
+        editor->setMultiLine(true);
+        editor->setFont(juce::Font(juce::Font::getDefaultMonospacedFontName(), 24.0f, juce::Font::plain));
 
-    // When Return is pressed, validate the pattern and give focus back to the main editor.
-    arpeggiatorEditor.onReturnKey = [this, validateAndSetPattern] {
-        validateAndSetPattern();
-        giveAwayKeyboardFocus(); // Or `getRootComponent()->grabKeyboardFocus()`
-    };
-    // Also validate when the editor loses focus (e.g., user clicks away).
-    arpeggiatorEditor.onFocusLost = validateAndSetPattern;
+        // Set the colors for the current arpeggiator
+        editor->setColour(juce::TextEditor::backgroundColourId, juce::Colours::transparentBlack);
+        editor->setColour(juce::TextEditor::textColourId, arpColour);
+        editor->setColour(juce::CaretComponent::caretColourId, arpColour.brighter());
+        editor->setColour(juce::TextEditor::highlightColourId, arpColour);
+        editor->setColour(juce::TextEditor::highlightedTextColourId, juce::Colours::black);
+        editor->setColour(juce::TextEditor::outlineColourId, arpColour); // For the LookAndFeel
 
+        editor->setText(audioProcessor.getArpeggiatorPattern(i), false);
+
+        auto validateAndSetPattern = [this, i, editor] {
+            audioProcessor.setArpeggiatorPattern(i, editor->getText());
+        };
+
+        editor->onReturnKey = [this, validateAndSetPattern] {
+            validateAndSetPattern();
+            giveAwayKeyboardFocus();
+        };
+        editor->onFocusLost = validateAndSetPattern;
+    }
+    
+
+    // --- Global Controls (Neutral Color) ---
     addAndMakeVisible(chordMethodLabel);
     chordMethodLabel.setText("Chord Method", juce::dontSendNotification);
     chordMethodLabel.attachToComponent(&chordMethodBox, true);
     chordMethodLabel.setLookAndFeel(&arpLookAndFeel);
-    chordMethodLabel.setColour(juce::Label::textColourId, juce::Colours::lime);
-
+    chordMethodLabel.setColour(juce::Label::textColourId, neutralColour);
+    
     addAndMakeVisible(chordMethodBox);
     // Manually populate the ComboBox *before* creating the attachment.
     chordMethodBox.setLookAndFeel(&arpLookAndFeel);
-    chordMethodBox.setColour(juce::ComboBox::textColourId, juce::Colours::lime);
+    chordMethodBox.setColour(juce::ComboBox::textColourId, neutralColour);
+    chordMethodBox.setColour(juce::ComboBox::outlineColourId, neutralColour);
     chordMethodBox.setColour(juce::ComboBox::backgroundColourId, juce::Colours::transparentBlack);
 
     if (auto* parameter = dynamic_cast<juce::AudioParameterChoice*>(apvts.getParameter("chordMethod")))
@@ -126,35 +142,92 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     chordMethodAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, "chordMethod", chordMethodBox);
     chordMethodBox.onChange = [this] { updateScaleDisplay(); };
 
-    addAndMakeVisible(subdivisionLabel);
-    subdivisionLabel.setText("Subdivision", juce::dontSendNotification);
-    subdivisionLabel.attachToComponent(&subdivisionBox, true);
-    subdivisionLabel.setLookAndFeel(&arpLookAndFeel);
-    subdivisionLabel.setColour(juce::Label::textColourId, juce::Colours::lime);
-
-    addAndMakeVisible(subdivisionBox);
-    // Manually populate the ComboBox *before* creating the attachment.
-    subdivisionBox.setLookAndFeel(&arpLookAndFeel);
-    subdivisionBox.setColour(juce::ComboBox::textColourId, juce::Colours::lime);
-    subdivisionBox.setColour(juce::ComboBox::backgroundColourId, juce::Colours::transparentBlack);
-
-    if (auto* parameter = dynamic_cast<juce::AudioParameterChoice*>(apvts.getParameter("subdivision")))
+    // --- Per-Arpeggiator Controls (Individual Colors) ---
+    for (int i = 0; i < 4; ++i)
     {
-        subdivisionBox.clear();
-        subdivisionBox.addItemList(parameter->choices, 1);
+        juce::Colour arpColour = juce::Colours::lime;
+        if (i == 1) arpColour = juce::Colours::cyan;
+        else if (i == 2) arpColour = juce::Colours::magenta;
+        else if (i == 3) arpColour = juce::Colours::yellow;
+        auto* label = new juce::Label();
+        // subdivisionLabels.add(label);
+        // addAndMakeVisible(label);
+        // label->setText("Sub " + juce::String(i + 1), juce::dontSendNotification);
+        // label->setLookAndFeel(&arpLookAndFeel);
+        // label->setColour(juce::Label::textColourId, arpColour);
+
+        auto* box = new juce::ComboBox();
+        subdivisionBoxes.add(box);
+        addAndMakeVisible(box);
+        // label->attachToComponent(box, true);
+        box->setLookAndFeel(&arpLookAndFeel);
+        box->setColour(juce::ComboBox::textColourId, arpColour);
+        box->setColour(juce::ComboBox::outlineColourId, arpColour);
+        box->setColour(juce::ComboBox::backgroundColourId, juce::Colours::transparentBlack);
+
+        auto paramID = "subdivision" + juce::String(i + 1);
+        if (auto* parameter = dynamic_cast<juce::AudioParameterChoice*>(apvts.getParameter(paramID)))
+        {
+            box->clear();
+            box->addItemList(parameter->choices, 1);
+        }
+        subdivisionAttachments.add(std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, paramID, *box));
     }
-    subdivisionAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, "subdivision", subdivisionBox);
+    
+    for (int i = 0; i < 4; ++i)
+    {
+        juce::Colour arpColour = juce::Colours::lime;
+        if (i == 1) arpColour = juce::Colours::cyan;
+        else if (i == 2) arpColour = juce::Colours::magenta;
+        else if (i == 3) arpColour = juce::Colours::yellow;
+        auto* button = new juce::ToggleButton();
+        arpeggiatorOnButtons.add(button);
+        addAndMakeVisible(button);
+        button->setButtonText(""); // Text is handled by the label now
+        button->setColour(juce::ToggleButton::textColourId, arpColour);
+        button->setToggleState(audioProcessor.isArpeggiatorOn(i), juce::dontSendNotification);
+
+        auto paramID = "arpOn" + juce::String(i + 1);
+        arpeggiatorOnAttachments.add(std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(apvts, paramID, *button));
+    }
+
+    for (int i = 0; i < 4; ++i)
+    {
+        juce::Colour arpColour = juce::Colours::lime;
+        if (i == 1) arpColour = juce::Colours::cyan;
+        else if (i == 2) arpColour = juce::Colours::magenta;
+        else if (i == 3) arpColour = juce::Colours::yellow;
+
+        auto* label = new juce::Label();
+        midiChannelLabels.add(label);
+        addAndMakeVisible(label);
+        label->setText("Ch ", juce::dontSendNotification);
+        label->setLookAndFeel(&arpLookAndFeel);
+        label->setColour(juce::Label::textColourId, arpColour);
+
+        auto* box = new juce::ComboBox();
+        midiChannelBoxes.add(box);
+        addAndMakeVisible(box);
+        label->attachToComponent(box, true);
+        box->setLookAndFeel(&arpLookAndFeel);
+        box->setColour(juce::ComboBox::textColourId, arpColour);
+        box->setColour(juce::ComboBox::outlineColourId, arpColour);
+        box->setColour(juce::ComboBox::backgroundColourId, juce::Colours::transparentBlack);
+        for (int ch = 1; ch <= 16; ++ch) box->addItem(juce::String(ch), ch);
+        midiChannelAttachments.add(std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment>(apvts, "midiChannel" + juce::String(i + 1), *box));
+    }
 
     addAndMakeVisible(scaleRootLabel);
     scaleRootLabel.setText("Scale Root", juce::dontSendNotification);
     scaleRootLabel.attachToComponent(&scaleRootBox, true);
     scaleRootLabel.setLookAndFeel(&arpLookAndFeel);
-    scaleRootLabel.setColour(juce::Label::textColourId, juce::Colours::lime);
+    scaleRootLabel.setColour(juce::Label::textColourId, neutralColour);
 
     addAndMakeVisible(scaleRootBox);
     scaleRootBox.setLookAndFeel(&arpLookAndFeel);
-    scaleRootBox.setColour(juce::ComboBox::textColourId, juce::Colours::lime);
+    scaleRootBox.setColour(juce::ComboBox::textColourId, neutralColour);
     scaleRootBox.setColour(juce::ComboBox::backgroundColourId, juce::Colours::transparentBlack);
+    scaleRootBox.setColour(juce::ComboBox::outlineColourId, neutralColour);
 
     if (auto* parameter = dynamic_cast<juce::AudioParameterChoice*>(apvts.getParameter("scaleRoot")))
     {
@@ -168,12 +241,13 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     scaleTypeLabel.setText("Scale Type", juce::dontSendNotification);
     scaleTypeLabel.attachToComponent(&scaleTypeBox, true);
     scaleTypeLabel.setLookAndFeel(&arpLookAndFeel);
-    scaleTypeLabel.setColour(juce::Label::textColourId, juce::Colours::lime);
+    scaleTypeLabel.setColour(juce::Label::textColourId, neutralColour);
 
     addAndMakeVisible(scaleTypeBox);
     scaleTypeBox.setLookAndFeel(&arpLookAndFeel);
-    scaleTypeBox.setColour(juce::ComboBox::textColourId, juce::Colours::lime);
+    scaleTypeBox.setColour(juce::ComboBox::textColourId, neutralColour);
     scaleTypeBox.setColour(juce::ComboBox::backgroundColourId, juce::Colours::transparentBlack);
+    scaleTypeBox.setColour(juce::ComboBox::outlineColourId, neutralColour);
 
     if (auto* parameter = dynamic_cast<juce::AudioParameterChoice*>(apvts.getParameter("scaleType")))
     {
@@ -185,6 +259,7 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
 
     addAndMakeVisible(followMidiInButton);
     followMidiInButton.setButtonText("Follow MIDI In");
+    followMidiInButton.setColour(juce::ToggleButton::textColourId, neutralColour);
     followMidiInAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(apvts, "followMidiIn", followMidiInButton);
 
     addAndMakeVisible(scaleComponent);
@@ -196,73 +271,107 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     updateScaleDisplay();
 
 
-    setSize (600, 360); // Increased height for the scale component
+    setSize (960, 400); // Increased size for multiple arps
 }
 
 TeArAudioProcessorEditor::~TeArAudioProcessorEditor()
 {
+    for (auto* editor : arpeggiatorEditors) editor->setLookAndFeel(nullptr);
+    for (auto* button : arpeggiatorOnButtons) button->setLookAndFeel(nullptr); // Toggle buttons don't use LookAndFeel for basic drawing, but good practice
+    for (auto* label : midiChannelLabels) label->setLookAndFeel(nullptr);
+    for (auto* box : midiChannelBoxes) box->setLookAndFeel(nullptr);
+    for (auto* label : subdivisionLabels) label->setLookAndFeel(nullptr);
+    for (auto* box : subdivisionBoxes) box->setLookAndFeel(nullptr);
     audioProcessor.removeChangeListener(this);
-    arpeggiatorEditor.setLookAndFeel(nullptr);
     stopTimer();
 }
 
 void TeArAudioProcessorEditor::changeListenerCallback (juce::ChangeBroadcaster* source)
 {
     // When the processor tells us something changed, update our manual controls.
-    arpeggiatorEditor.setText(audioProcessor.getArpeggiatorPattern(), false);
+    for (int i = 0; i < arpeggiatorEditors.size(); ++i)
+        arpeggiatorEditors[i]->setText(audioProcessor.getArpeggiatorPattern(i), false);
 }
 
 void TeArAudioProcessorEditor::timerCallback()
 {
-    const auto& arpeggiator = audioProcessor.getArpeggiator();
-    const auto& chord = arpeggiator.getChord();
-    const int currentNote = arpeggiator.getLastPlayedNote();
-
     const bool notesAreHeld = audioProcessor.areNotesHeld();
 
     if (notesAreHeld)
     {
-        // Arpeggiator is active (playing a note or on a rest)
+        // The chord is the same for all arps, so we can get it from the first one.
+        const auto& chord = audioProcessor.getArpeggiator(0).getChord();
         auto chordMethod = static_cast<int>(audioProcessor.getAPVTS().getRawParameterValue("chordMethod")->load());
         const auto& notes = (chordMethod == 1) ? chord.getRawNotes() : chord.getDegrees();
 
-        if (!notes.isEmpty())
+        // Collect all currently playing notes from active arpeggiators
+        juce::Array<juce::var> currentNotes;
+        for (int i = 0; i < 4; ++i)
         {
-            // currentNote will be -1 on a rest, which is what updateScale expects.
-            scaleComponent.updateScale(notes, notes.getFirst(), currentNote);
+            if (audioProcessor.isArpeggiatorOn(i))
+            {
+                int note = audioProcessor.getArpeggiator(i).getLastPlayedNote();
+                if (note != -1)
+                {
+                    auto* noteInfo = new juce::DynamicObject();
+                    noteInfo->setProperty("note", note);
+                    noteInfo->setProperty("arpIndex", i);
+                    currentNotes.add(juce::var(noteInfo));
+                }
+            }
         }
+
+        if (!notes.isEmpty())
+            scaleComponent.updateScale(notes, notes.getFirst(), currentNotes);
     }
     else
     {
-        // Arpeggiator is fully stopped.
         updateScaleDisplay();
     }
 
-    // Only show the highlight if the user is NOT editing the text.
-    if (!arpeggiatorEditor.hasKeyboardFocus(true))
+    // Update step highlights for each editor
+    if (notesAreHeld) // Only highlight if notes are held
     {
-        int currentStep = audioProcessor.getArpeggiatorCurrentStep();
-    
-        // Only update if the step has changed to avoid unnecessary redrawing
-        if (currentStep != lastStepIndex)
+        for (int i = 0; i < 4; ++i)
         {
-            lastStepIndex = currentStep;
-    
-            const auto pattern = audioProcessor.getArpeggiatorPattern();
-            int stepStart = audioProcessor.getArpeggiator().getPatternIndexForStep(currentStep);
-            int stepEnd = audioProcessor.getArpeggiator().getPatternIndexForStep(currentStep + 1);
-    
-            // If the next step is at index 0, it means we've looped, so highlight to the end.
-            if (stepEnd <= stepStart)
-                stepEnd = pattern.length();
-    
-            arpeggiatorEditor.setHighlightedRegion({ stepStart, stepEnd });
+            auto* editor = arpeggiatorEditors[i];
+
+            if (!editor->hasKeyboardFocus(true) && audioProcessor.isArpeggiatorOn(i))
+            {
+                int currentStep = audioProcessor.getArpeggiatorCurrentStep(i);
+
+                if (currentStep != lastStepIndices[i])
+                {
+                    lastStepIndices.set(i, currentStep);
+
+                    const auto& arp = audioProcessor.getArpeggiator(i);
+                    const auto& pattern = audioProcessor.getArpeggiatorPattern(i);
+                    int stepStart = arp.getPatternIndexForStep(currentStep);
+                    int stepEnd = arp.getPatternIndexForStep(currentStep + 1);
+
+                    if (stepEnd <= stepStart)
+                        stepEnd = pattern.length();
+
+                    editor->setHighlightedRegion({ stepStart, stepEnd });
+                }
+            }
+            else if (lastStepIndices[i] != -1 || !audioProcessor.isArpeggiatorOn(i)) // Clear highlight if not on or not playing
+            {
+                editor->setHighlightedRegion({});
+                lastStepIndices.set(i, -1);
+            }
         }
     }
-    else if (lastStepIndex != -1) // If we are editing, clear the highlight.
+    else // If no notes are held, clear all highlights
     {
-        arpeggiatorEditor.setHighlightedRegion({});
-        lastStepIndex = -1; // Reset to ensure highlight updates immediately when focus is lost.
+        for (int i = 0; i < 4; ++i)
+        {
+            if (lastStepIndices[i] != -1)
+            {
+                arpeggiatorEditors[i]->setHighlightedRegion({});
+                lastStepIndices.set(i, -1);
+            }
+        }
     }
 }
 
@@ -281,10 +390,10 @@ void TeArAudioProcessorEditor::updateScaleDisplay()
 
         // Update the component with the scale notes, but with -1 for root and current note
         // to indicate that no note is currently playing. The root note should be shown.
-        scaleComponent.updateScale(currentDisplayScale.getNotes(), currentDisplayScale.getRootNote(), -1);
+        scaleComponent.updateScale(currentDisplayScale.getNotes(), currentDisplayScale.getRootNote(), {});
     }
     else // For "Notes played" or "Chord played as is", clear the display when not playing.
-        scaleComponent.updateScale({}, -1, -1);
+        scaleComponent.updateScale({}, -1, {});
 
     lastPlayedArpNote = -1; // Reset the last played note tracker
 }
@@ -306,24 +415,47 @@ void TeArAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds().reduced(10);
 
-    juce::FlexBox mainBox;
+    juce::FlexBox mainBox, editorBox, controlsBox, subdivisionRowBox, channelRowBox;
     mainBox.flexDirection = juce::FlexBox::Direction::column;
-    juce::FlexBox hBox1, hBox2;
-    hBox1.flexDirection = juce::FlexBox::Direction::row;
-    hBox2.flexDirection = juce::FlexBox::Direction::row;
+    editorBox.flexDirection = juce::FlexBox::Direction::row;
+    controlsBox.flexDirection = juce::FlexBox::Direction::row;
+    subdivisionRowBox.flexDirection = juce::FlexBox::Direction::row;
+    channelRowBox.flexDirection = juce::FlexBox::Direction::row;
 
-    hBox1.items.add(juce::FlexItem(subdivisionLabel).withFlex(0.8f));
-    hBox1.items.add(juce::FlexItem(subdivisionBox).withFlex(.5f));
-    hBox1.items.add(juce::FlexItem(chordMethodLabel).withFlex(1.f));
-    hBox1.items.add(juce::FlexItem(chordMethodBox).withFlex(1.2f));
-    hBox2.items.add(juce::FlexItem(scaleRootLabel).withFlex(0.8f));
-    hBox2.items.add(juce::FlexItem(scaleRootBox).withFlex(.5f));
-    hBox2.items.add(juce::FlexItem(followMidiInButton).withFlex(0.6f).withMargin(juce::FlexItem::Margin(0.f, 0.f, 0.f, 5.f)));
-    hBox2.items.add(juce::FlexItem(scaleTypeLabel).withFlex(0.6f));
-    hBox2.items.add(juce::FlexItem(scaleTypeBox).withFlex(1.f));
-    mainBox.items.add(juce::FlexItem(scaleComponent).withFlex(0.2f).withMargin(juce::FlexItem::Margin(5.f, 10.f, 0.f, 10.f)));
-    mainBox.items.add(juce::FlexItem(arpeggiatorEditor).withFlex(1.f).withMargin(10));
-    mainBox.items.add(juce::FlexItem(hBox1).withFlex(0.12f).withMargin(juce::FlexItem::Margin( 0.f,10.f,0.f,10.f)));
-    mainBox.items.add(juce::FlexItem(hBox2).withFlex(0.12f).withMargin(juce::FlexItem::Margin(0.f,10.f,0.f,10.f)));
+    for (int i = 0; i < 4; ++i)
+    {
+        int leftMargin = 5;
+        int rightMargin = 5;
+        if (i==0) leftMargin = 0;
+        if (i==3) rightMargin = 0;
+        editorBox.items.add(juce::FlexItem(*arpeggiatorEditors[i]).withFlex(1.0f).withMargin(juce::FlexItem::Margin(0, rightMargin, 0, leftMargin)));
+    }
+
+    for (int i = 0; i < 4; ++i)
+    {
+        // Add the On/Off button to the left of the subdivision label
+        subdivisionRowBox.items.add(juce::FlexItem(*arpeggiatorOnButtons[i]).withFlex(0.15f).withMargin(juce::FlexItem::Margin(0.f, 5.f, 0.f, 0.f)));
+        //subdivisionRowBox.items.add(juce::FlexItem(*subdivisionLabels[i]).withFlex(0.25f));
+        subdivisionRowBox.items.add(juce::FlexItem(*subdivisionBoxes[i]).withFlex(0.5f).withMargin(juce::FlexItem::Margin(0.f, 5.f, 0.f, 0.f)));
+        subdivisionRowBox.items.add(juce::FlexItem(*midiChannelLabels[i]).withFlex(0.25f).withMargin(juce::FlexItem::Margin(0.f, 5.f, 0.f, 0.f)));
+        subdivisionRowBox.items.add(juce::FlexItem(*midiChannelBoxes[i]).withFlex(0.3f).withMargin(juce::FlexItem::Margin(0.f, 10.f, 0.f, 0.f)));
+    }
+    // Add some space between the subdivision groups
+    for (int i = 0; i < 3; ++i) {
+        subdivisionRowBox.items.insert(i * 5 + 4, juce::FlexItem().withFlex(0.1f));
+    }
+
+    controlsBox.items.add(juce::FlexItem(chordMethodLabel).withFlex(0.5f));
+    controlsBox.items.add(juce::FlexItem(chordMethodBox).withFlex(1.0f));
+    controlsBox.items.add(juce::FlexItem(scaleRootLabel).withFlex(0.5f).withMargin(juce::FlexItem::Margin(0.f, 0.f, 0.f, 10.f)));
+    controlsBox.items.add(juce::FlexItem(scaleRootBox).withFlex(0.5f));
+    controlsBox.items.add(juce::FlexItem(followMidiInButton).withFlex(0.6f).withMargin(juce::FlexItem::Margin(0.f, 5.f, 0.f, 5.f)));
+    controlsBox.items.add(juce::FlexItem(scaleTypeLabel).withFlex(0.5f));
+    controlsBox.items.add(juce::FlexItem(scaleTypeBox).withFlex(1.0f));
+
+    mainBox.items.add(juce::FlexItem(controlsBox).withFlex(0.12f).withMargin(juce::FlexItem::Margin(0.f, 10.f, 0.f, 10.f)));
+    mainBox.items.add(juce::FlexItem(scaleComponent).withFlex(0.15f).withMargin(juce::FlexItem::Margin(5.f, 10.f, 0.f, 10.f)));
+    mainBox.items.add(juce::FlexItem(editorBox).withFlex(1.0f).withMargin(10));
+    mainBox.items.add(juce::FlexItem(subdivisionRowBox).withFlex(0.12f).withMargin(juce::FlexItem::Margin(0.f, 10.f, 0.f, 10.f)));
     mainBox.performLayout(bounds);
 }

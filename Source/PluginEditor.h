@@ -77,15 +77,22 @@ private:
         }
     };
 
-    ArpeggiatorTextEditor arpeggiatorEditor;
+    juce::Array<ArpeggiatorTextEditor*> arpeggiatorEditors;
+
+    juce::Array<juce::ToggleButton*> arpeggiatorOnButtons;
+    juce::Array<std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>> arpeggiatorOnAttachments;
     
     juce::Label chordMethodLabel;
     juce::ComboBox chordMethodBox;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> chordMethodAttachment;
 
-    juce::Label subdivisionLabel;
-    juce::ComboBox subdivisionBox;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> subdivisionAttachment;
+    juce::Array<juce::Label*> subdivisionLabels;
+    juce::Array<juce::ComboBox*> subdivisionBoxes;
+    juce::Array<std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>> subdivisionAttachments;
+
+    juce::Array<juce::Label*> midiChannelLabels;
+    juce::Array<juce::ComboBox*> midiChannelBoxes;
+    juce::Array<std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment>> midiChannelAttachments;
 
     juce::Label scaleRootLabel;
     juce::ComboBox scaleRootBox;
@@ -101,8 +108,8 @@ private:
     ScaleComponent scaleComponent;
     int lastPlayedArpNote = -1;
     MidiTools::Scale currentDisplayScale {0, MidiTools::Scale::Type::Major};
-
-    int lastStepIndex = -1;
+    
+    juce::Array<int> lastStepIndices;
 
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TeArAudioProcessorEditor)
