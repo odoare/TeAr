@@ -24,6 +24,55 @@ void TeArAudioProcessorEditor::ArpLookAndFeel::drawTextEditorOutline (juce::Grap
     // We don't want an outline, so this is empty.
 }
 
+void TeArAudioProcessorEditor::ArpLookAndFeel::drawLabel (juce::Graphics& g, juce::Label& label)
+{
+    g.fillAll (label.findColour (juce::Label::backgroundColourId));
+
+    if (! label.isBeingEdited())
+    {
+        auto alpha = label.isEnabled() ? 1.0f : 0.5f;
+        const juce::Font font (getLabelFont (label));
+
+        g.setColour (label.findColour (juce::Label::textColourId).withMultipliedAlpha (alpha));
+        g.setFont (font);
+
+        auto textArea = getLabelBorderSize (label).subtractedFrom (label.getLocalBounds());
+
+        g.drawText (label.getText(), textArea, label.getJustificationType(), true);
+
+        g.setColour (label.findColour (juce::Label::outlineColourId).withMultipliedAlpha (alpha));
+    }
+    else if (label.isEnabled())
+    {
+        g.setColour (label.findColour (juce::Label::outlineColourId));
+    }
+
+    g.drawRect (label.getLocalBounds());
+}
+
+void TeArAudioProcessorEditor::ArpLookAndFeel::drawComboBox (juce::Graphics& g, int width, int height, bool isButtonDown, int buttonX, int buttonY, int buttonW, int buttonH, juce::ComboBox& box)
+{
+    auto cornerSize = box.getHeight() * 0.2f;
+    juce::Path p;
+    p.addRoundedRectangle(0, 0, width, height, cornerSize);
+
+    g.setColour(juce::Colours::darkblue.darker(2.f));
+    g.fillPath(p);
+
+    g.setColour(juce::Colours::green);
+    g.strokePath(p, juce::PathStrokeType(2.0f));
+
+    auto arrowZone = juce::Rectangle<int> (width - 30, 0, 20, height);
+    juce::Path arrow;
+    arrow.addTriangle(arrowZone.getX() + 5, arrowZone.getCentreY() - 3, arrowZone.getRight() - 5, arrowZone.getCentreY() - 3, arrowZone.getCentreX(), arrowZone.getCentreY() + 4);
+    g.fillPath(arrow);
+}
+
+juce::Font TeArAudioProcessorEditor::ArpLookAndFeel::getLabelFont (juce::Label& /*label*/)
+{
+    return { 15.0f };
+}
+
 TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
 {
@@ -59,9 +108,15 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     addAndMakeVisible(chordMethodLabel);
     chordMethodLabel.setText("Chord Method", juce::dontSendNotification);
     chordMethodLabel.attachToComponent(&chordMethodBox, true);
+    chordMethodLabel.setLookAndFeel(&arpLookAndFeel);
+    chordMethodLabel.setColour(juce::Label::textColourId, juce::Colours::lime);
 
     addAndMakeVisible(chordMethodBox);
     // Manually populate the ComboBox *before* creating the attachment.
+    chordMethodBox.setLookAndFeel(&arpLookAndFeel);
+    chordMethodBox.setColour(juce::ComboBox::textColourId, juce::Colours::lime);
+    chordMethodBox.setColour(juce::ComboBox::backgroundColourId, juce::Colours::transparentBlack);
+
     if (auto* parameter = dynamic_cast<juce::AudioParameterChoice*>(apvts.getParameter("chordMethod")))
     {
         chordMethodBox.clear();
@@ -74,9 +129,15 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     addAndMakeVisible(subdivisionLabel);
     subdivisionLabel.setText("Subdivision", juce::dontSendNotification);
     subdivisionLabel.attachToComponent(&subdivisionBox, true);
+    subdivisionLabel.setLookAndFeel(&arpLookAndFeel);
+    subdivisionLabel.setColour(juce::Label::textColourId, juce::Colours::lime);
 
     addAndMakeVisible(subdivisionBox);
     // Manually populate the ComboBox *before* creating the attachment.
+    subdivisionBox.setLookAndFeel(&arpLookAndFeel);
+    subdivisionBox.setColour(juce::ComboBox::textColourId, juce::Colours::lime);
+    subdivisionBox.setColour(juce::ComboBox::backgroundColourId, juce::Colours::transparentBlack);
+
     if (auto* parameter = dynamic_cast<juce::AudioParameterChoice*>(apvts.getParameter("subdivision")))
     {
         subdivisionBox.clear();
@@ -87,8 +148,14 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     addAndMakeVisible(scaleRootLabel);
     scaleRootLabel.setText("Scale Root", juce::dontSendNotification);
     scaleRootLabel.attachToComponent(&scaleRootBox, true);
+    scaleRootLabel.setLookAndFeel(&arpLookAndFeel);
+    scaleRootLabel.setColour(juce::Label::textColourId, juce::Colours::lime);
 
     addAndMakeVisible(scaleRootBox);
+    scaleRootBox.setLookAndFeel(&arpLookAndFeel);
+    scaleRootBox.setColour(juce::ComboBox::textColourId, juce::Colours::lime);
+    scaleRootBox.setColour(juce::ComboBox::backgroundColourId, juce::Colours::transparentBlack);
+
     if (auto* parameter = dynamic_cast<juce::AudioParameterChoice*>(apvts.getParameter("scaleRoot")))
     {
         scaleRootBox.clear();
@@ -100,8 +167,14 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     addAndMakeVisible(scaleTypeLabel);
     scaleTypeLabel.setText("Scale Type", juce::dontSendNotification);
     scaleTypeLabel.attachToComponent(&scaleTypeBox, true);
+    scaleTypeLabel.setLookAndFeel(&arpLookAndFeel);
+    scaleTypeLabel.setColour(juce::Label::textColourId, juce::Colours::lime);
 
     addAndMakeVisible(scaleTypeBox);
+    scaleTypeBox.setLookAndFeel(&arpLookAndFeel);
+    scaleTypeBox.setColour(juce::ComboBox::textColourId, juce::Colours::lime);
+    scaleTypeBox.setColour(juce::ComboBox::backgroundColourId, juce::Colours::transparentBlack);
+
     if (auto* parameter = dynamic_cast<juce::AudioParameterChoice*>(apvts.getParameter("scaleType")))
     {
         scaleTypeBox.clear();

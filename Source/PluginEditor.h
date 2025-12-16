@@ -41,6 +41,9 @@ private:
     public:
         void fillTextEditorBackground (juce::Graphics& g, int width, int height, juce::TextEditor& editor) override;
         void drawTextEditorOutline (juce::Graphics& g, int width, int height, juce::TextEditor& editor) override;
+        void drawLabel (juce::Graphics& g, juce::Label& label) override;
+        void drawComboBox (juce::Graphics& g, int width, int height, bool isButtonDown, int buttonX, int buttonY, int buttonW, int buttonH, juce::ComboBox& box) override;
+        juce::Font getLabelFont (juce::Label& label) override;
     };
 
     ArpLookAndFeel arpLookAndFeel;

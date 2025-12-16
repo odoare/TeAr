@@ -12,7 +12,7 @@
 
 ScaleComponent::ScaleComponent()
 {
-  setOpaque(true);
+  setOpaque(false);
 }
 
 ScaleComponent::~ScaleComponent()
@@ -24,11 +24,9 @@ void ScaleComponent::paint(juce::Graphics &g)
     // Background
     // g.fillAll(juce::Colours::darkblue.darker(2.f));
     g.setColour (juce::Colours::darkblue.darker(2.f));
-    g.fillRoundedRectangle (juce::Rectangle<int>(getLocalBounds()).toFloat(), 10.0f);
+    g.fillRoundedRectangle (juce::Rectangle<int>(getLocalBounds().reduced(2)).toFloat(), 10.0f);
     g.setColour (juce::Colours::green);
-    g.drawRoundedRectangle (juce::Rectangle<int>(getLocalBounds()).toFloat(), 10.0f,2.f);
-
-
+    g.drawRoundedRectangle (juce::Rectangle<int>(getLocalBounds().reduced(2)).toFloat(), 10.0f, 2.f);
 
     const int numNotes = 12;
     const float width = (float)getWidth();
@@ -40,7 +38,7 @@ void ScaleComponent::paint(juce::Graphics &g)
     const juce::Colour tickColour = juce::Colours::grey;
     const juce::Colour scaleTickColour = juce::Colours::lime;
     const juce::Colour rootHighlightColour = juce::Colours::yellow;
-    const juce::Colour currentNoteHighlightColour = juce::Colours::cyan;
+    const juce::Colour currentNoteHighlightColour = juce::Colours::green;
 
     for (int i = 0; i < numNotes; ++i)
     {
@@ -56,13 +54,13 @@ void ScaleComponent::paint(juce::Graphics &g)
         // --- Draw Highlights ---
         if (isCurrentNote)
         {
-            g.setColour(currentNoteHighlightColour.withAlpha(0.5f));
-            g.fillRoundedRectangle(x, 0.0f, noteWidth, height,10.0f);
+            g.setColour(currentNoteHighlightColour.withAlpha(0.9f));
+            g.fillRoundedRectangle(x, 0.0f, noteWidth-2.f, height-2.f,10.0f);
         }
         else if (isRootNote)
         {
             g.setColour(rootHighlightColour.withAlpha(0.5f));
-            g.fillRoundedRectangle(x, 0.0f, noteWidth, height,10.0f);
+            g.fillRoundedRectangle(x, 0.0f, noteWidth-2.f, height-2.f,10.0f);
         }
 
         // --- Draw Ticks ---
