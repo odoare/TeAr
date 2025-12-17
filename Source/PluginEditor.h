@@ -11,6 +11,7 @@
 #include <JuceHeader.h>
 #include "PluginProcessor.h"
 #include "ScaleComponent.h"
+#include "FxmeLogo.h"
 
 //==============================================================================
 /**
@@ -111,6 +112,8 @@ private:
     MidiTools::Scale currentDisplayScale {0, MidiTools::Scale::Type::Major};
     
     juce::Array<int> lastStepIndices;
+
+    FxmeLogo logo{"",false};
 
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TeArAudioProcessorEditor)

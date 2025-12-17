@@ -264,6 +264,7 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     followMidiInAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(apvts, "followMidiIn", followMidiInButton);
 
     addAndMakeVisible(scaleComponent);
+    addAndMakeVisible(logo);
 
     // Start the timer to update the UI 30 times per second
     startTimerHz(60);
@@ -446,6 +447,7 @@ void TeArAudioProcessorEditor::resized()
         subdivisionRowBox.items.insert(i * 5 + 4, juce::FlexItem().withFlex(0.1f));
     }
 
+    controlsBox.items.add(juce::FlexItem(logo).withFlex(0.2f));
     controlsBox.items.add(juce::FlexItem(chordMethodLabel).withFlex(0.5f));
     controlsBox.items.add(juce::FlexItem(chordMethodBox).withFlex(1.0f));
     controlsBox.items.add(juce::FlexItem(scaleRootLabel).withFlex(0.5f).withMargin(juce::FlexItem::Margin(0.f, 0.f, 0.f, 10.f)));

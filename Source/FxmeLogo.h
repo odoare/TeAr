@@ -1,0 +1,38 @@
+/*
+  ==============================================================================
+
+    FxmeLogo.h
+    Created: 30 May 2025 8:32:38pm
+    Author:  doare
+
+  ==============================================================================
+*/
+
+#pragma once
+
+#include <JuceHeader.h>
+
+#define RATIO 1.185f
+
+//==============================================================================
+/*
+*/
+class FxmeLogo  : public juce::Component
+{
+public:
+    FxmeLogo(juce::String title = "Fxme", bool dtitle = true);
+    ~FxmeLogo() override;
+
+    void paint (juce::Graphics&) override;
+    void resized() override;
+    void mouseDown (const juce::MouseEvent& event) override;
+
+    bool drawTitle;
+
+    std::function<void()> onClick;
+
+private:
+    juce::Image logo;
+    juce::String titleText;
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (FxmeLogo)
+};

@@ -4,7 +4,12 @@
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" pluginFormats="buildStandalone,buildVST,buildVST3"
               pluginCharacteristicsValue="pluginIsMidiEffectPlugin,pluginProducesMidiOut,pluginWantsMidiIn">
   <MAINGROUP id="CrGhnX" name="TeAr">
+    <GROUP id="{BF42E9F3-3000-3D43-90A3-58A28B0B7169}" name="Assets">
+      <FILE id="pEFESa" name="logo686.png" compile="0" resource="1" file="Source/assets/logo686.png"/>
+    </GROUP>
     <GROUP id="{CC837EB5-75FC-F5E2-72FA-39200551468C}" name="Source">
+      <FILE id="IpBmf2" name="FxmeLogo.h" compile="0" resource="0" file="Source/FxmeLogo.h"/>
+      <FILE id="fYSJK4" name="FxmeLogo.cpp" compile="1" resource="0" file="Source/FxmeLogo.cpp"/>
       <FILE id="fapJYP" name="ScaleComponent.cpp" compile="1" resource="0"
             file="Source/ScaleComponent.cpp"/>
       <FILE id="MGOz4c" name="ScaleComponent.h" compile="0" resource="0"
