@@ -404,6 +404,26 @@ void TeArAudioProcessor::setArpeggiatorPattern(int index, const juce::String& pa
     {
         arpeggiatorPatterns.set(index, pattern);
         arpeggiators.getReference(index).setPattern(pattern);
+
+        // If the pattern of an arp changed and the DAW is not playing, sync it to another running arp.
+        // This ensures that when playback is stopped, all arps remain rhythmically aligned.
+        if (!wasPlaying && arpeggiatorOnStates[index])
+        {
+            double masterSamplesUntilNext = -1.0;
+            // Find a running arpeggiator to use as the master clock
+            for (int i = 0; i < arpeggiators.size(); ++i)
+            {
+                if (i != index && arpeggiatorOnStates[i])
+                {
+                    masterSamplesUntilNext = arpeggiators[i].getSamplesUntilNextNote();
+                    break;
+                }
+            }
+
+            // If we found a master, sync the arpeggiator whose pattern just changed.
+            if (masterSamplesUntilNext >= 0.0)
+                arpeggiators.getReference(index).setSamplesUntilNextNote(masterSamplesUntilNext);
+        }
     }
 }
 
