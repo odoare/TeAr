@@ -28,7 +28,7 @@ TeArAudioProcessor::TeArAudioProcessor()
     {
         arpeggiators.add(Arpeggiator());
         arpeggiatorOnStates.add(true); // Default to ON
-        arpeggiatorMidiChannels.add(1); // Default to channel 1
+        arpeggiatorMidiChannels.add(i + 1); // Default to channel i + 1
         apvts.addParameterListener("midiChannel" + juce::String(i + 1), this);
         apvts.addParameterListener("arpOn" + juce::String(i + 1), this);
         arpeggiatorPatterns.add("1 2 3");
@@ -372,6 +372,16 @@ void TeArAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
         // Restore the APVTS state
         if (xmlState->hasTagName (apvts.state.getType()))
             apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
+
+        // Sync cached MIDI channels and subdivisions from APVTS
+        for (int i = 0; i < arpeggiatorMidiChannels.size(); ++i)
+        {
+            if (auto* p = apvts.getRawParameterValue("midiChannel" + juce::String(i + 1)))
+                arpeggiatorMidiChannels.set(i, static_cast<int>(*p));
+
+            if (auto* p = apvts.getRawParameterValue("subdivision" + juce::String(i + 1)))
+                arpeggiators.getReference(i).setSubdivision(static_cast<int>(*p));
+        }
 
         // Manually restore our string parameters from the same XML
         for (int i = 0; i < arpeggiatorPatterns.size(); ++i)
