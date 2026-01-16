@@ -31,7 +31,7 @@ TeArAudioProcessor::TeArAudioProcessor()
         arpeggiatorMidiChannels.add(1); // Default to channel 1
         apvts.addParameterListener("midiChannel" + juce::String(i + 1), this);
         apvts.addParameterListener("arpOn" + juce::String(i + 1), this);
-        arpeggiatorPatterns.add("0 1 2");
+        arpeggiatorPatterns.add("1 2 3");
         apvts.addParameterListener("subdivision" + juce::String(i + 1), this);
     }
 
@@ -208,13 +208,11 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
                 if (arpeggiatorOnStates[i])
                     arpeggiators.getReference(i).setGlobalVelocityFromMidi(msg.getVelocity());
             notesChanged = true;
-            std::cout << "Note on: " << msg.getNoteNumber() << std::endl;
         }
         else if (msg.isNoteOff())
         {
             heldNotes.removeFirstMatchingValue(msg.getNoteNumber());
             notesChanged = true;
-            std::cout << "Note off: " << msg.getNoteNumber() << std::endl;            
         }
     }
 
