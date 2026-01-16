@@ -31,7 +31,7 @@ The pattern string consists of characters that define the arpeggio's behavior at
 | `+` | Plays the next degree in the chord (e.g., from 1 to 2). |
 | `-` | Plays the previous degree in the chord (e.g., from 2 to 1). |
 | `?` | Plays a random, valid note from the current chord. |
-| `"` or `=` | Repeats the last played degree. |
+| `=` | Repeats the last played degree. |
 
 ### Pitch Modifiers
 
