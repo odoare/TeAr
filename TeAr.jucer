@@ -3,7 +3,7 @@
 <JUCERPROJECT id="j4AULN" name="TeAr" projectType="audioplug" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" pluginFormats="buildVST,buildVST3"
               pluginCharacteristicsValue="pluginIsSynth,pluginProducesMidiOut,pluginWantsMidiIn"
-              version="0.1" pluginDesc="The Text Arpeggiator" pluginManufacturer="FX-Mechanics"
+              version="0.2" pluginDesc="The Text Arpeggiator" pluginManufacturer="FX-Mechanics"
               pluginManufacturerCode="FXME" pluginCode="TEAR" companyWebsite="fx-mechanics.com"
               companyCopyright="FX-Mechanics" companyName="FX-Mechanics">
   <MAINGROUP id="CrGhnX" name="TeAr">
