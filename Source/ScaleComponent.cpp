@@ -108,12 +108,11 @@ void ScaleComponent::updateScale(const juce::Array<int> &newScaleNotes, int newR
 
 juce::Colour ScaleComponent::getColourForArp(int arpIndex) const
 {
-    switch (arpIndex)
-    {
-        case 0: return juce::Colours::lime;
-        case 1: return juce::Colours::cyan;
-        case 2: return juce::Colours::magenta;
-        case 3: return juce::Colours::yellow;
-        default: return juce::Colours::green;
-    }
+    static const juce::Colour arpColours[] = {
+        juce::Colours::lime,
+        juce::Colours::cyan,
+        juce::Colours::magenta,
+        juce::Colours::yellow
+    };
+    return juce::isPositiveAndBelow(arpIndex, 4) ? arpColours[arpIndex] : juce::Colours::green;
 }

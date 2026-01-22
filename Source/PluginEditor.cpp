@@ -86,10 +86,7 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
 
     for (int i = 0; i < 4; ++i)
     {
-        juce::Colour arpColour = juce::Colours::lime; // Default for Arp 1
-        if (i == 1) arpColour = juce::Colours::cyan;
-        else if (i == 2) arpColour = juce::Colours::magenta;
-        else if (i == 3) arpColour = juce::Colours::yellow;
+        juce::Colour arpColour = arpColours[i];
         auto* editor = new ArpeggiatorTextEditor();
         arpeggiatorEditors.add(editor);
         addAndMakeVisible(editor);
@@ -145,10 +142,7 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     // --- Per-Arpeggiator Controls (Individual Colors) ---
     for (int i = 0; i < 4; ++i)
     {
-        juce::Colour arpColour = juce::Colours::lime;
-        if (i == 1) arpColour = juce::Colours::cyan;
-        else if (i == 2) arpColour = juce::Colours::magenta;
-        else if (i == 3) arpColour = juce::Colours::yellow;
+        juce::Colour arpColour = arpColours[i];
         auto* label = new juce::Label();
         // subdivisionLabels.add(label);
         // addAndMakeVisible(label);
@@ -176,10 +170,7 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     
     for (int i = 0; i < 4; ++i)
     {
-        juce::Colour arpColour = juce::Colours::lime;
-        if (i == 1) arpColour = juce::Colours::cyan;
-        else if (i == 2) arpColour = juce::Colours::magenta;
-        else if (i == 3) arpColour = juce::Colours::yellow;
+        juce::Colour arpColour = arpColours[i];
         auto* button = new juce::ToggleButton();
         arpeggiatorOnButtons.add(button);
         addAndMakeVisible(button);
@@ -205,10 +196,7 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
 
     for (int i = 0; i < 4; ++i)
     {
-        juce::Colour arpColour = juce::Colours::lime;
-        if (i == 1) arpColour = juce::Colours::cyan;
-        else if (i == 2) arpColour = juce::Colours::magenta;
-        else if (i == 3) arpColour = juce::Colours::yellow;
+        juce::Colour arpColour = arpColours[i];
 
         auto* label = new juce::Label();
         midiChannelLabels.add(label);

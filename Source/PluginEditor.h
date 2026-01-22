@@ -116,6 +116,12 @@ private:
 
     FxmeLogo logo{"",false};
 
+    const juce::Colour arpColours[4] {
+        juce::Colours::lime,
+        juce::Colours::cyan,
+        juce::Colours::magenta,
+        juce::Colours::yellow
+    };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TeArAudioProcessorEditor)
 };
