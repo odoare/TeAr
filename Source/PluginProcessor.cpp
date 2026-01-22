@@ -444,6 +444,17 @@ const juce::String& TeArAudioProcessor::getArpeggiatorPattern(int index) const
     return emptyString;
 }
 
+void TeArAudioProcessor::randomizeArpeggiator(int index)
+{
+    if (juce::isPositiveAndBelow(index, arpeggiators.size()))
+    {
+        arpeggiators.getReference(index).randomize();
+        // Update the stored pattern string to match the new random pattern
+        arpeggiatorPatterns.set(index, arpeggiators.getReference(index).getPattern());
+        sendChangeMessage(); // Notify the editor to update the text box
+    }
+}
+
 bool TeArAudioProcessor::isArpeggiatorOn(int index) const
 {
     if (juce::isPositiveAndBelow(index, arpeggiatorOnStates.size()))

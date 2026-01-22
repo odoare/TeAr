@@ -83,6 +83,7 @@ private:
 
     juce::Array<juce::ToggleButton*> arpeggiatorOnButtons;
     juce::Array<std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment>> arpeggiatorOnAttachments;
+    juce::Array<juce::TextButton*> randomizeButtons;
     
     juce::Label chordMethodLabel;
     juce::ComboBox chordMethodBox;

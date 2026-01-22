@@ -190,6 +190,17 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
 
         auto paramID = "arpOn" + juce::String(i + 1);
         arpeggiatorOnAttachments.add(std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment>(apvts, paramID, *button));
+
+        // Randomize Button
+        auto* rndButton = new juce::TextButton("?");
+        randomizeButtons.add(rndButton);
+        addAndMakeVisible(rndButton);
+        rndButton->setButtonText("?");
+        // rndButton->setTooltip("Randomize Pattern");
+        rndButton->setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+        rndButton->setColour(juce::TextButton::textColourOffId, arpColour);
+        rndButton->setColour(juce::TextButton::textColourOnId, arpColour.brighter());
+        rndButton->onClick = [this, i] { audioProcessor.randomizeArpeggiator(i); };
     }
 
     for (int i = 0; i < 4; ++i)
@@ -437,6 +448,7 @@ void TeArAudioProcessorEditor::resized()
     {
         // Add the On/Off button to the left of the subdivision label
         subdivisionRowBox.items.add(juce::FlexItem(*arpeggiatorOnButtons[i]).withFlex(0.15f).withMargin(juce::FlexItem::Margin(0.f, 5.f, 0.f, 0.f)));
+        subdivisionRowBox.items.add(juce::FlexItem(*randomizeButtons[i]).withFlex(0.15f).withMargin(juce::FlexItem::Margin(0.f, 5.f, 0.f, 0.f)));
         //subdivisionRowBox.items.add(juce::FlexItem(*subdivisionLabels[i]).withFlex(0.25f));
         subdivisionRowBox.items.add(juce::FlexItem(*subdivisionBoxes[i]).withFlex(0.5f).withMargin(juce::FlexItem::Margin(0.f, 5.f, 0.f, 0.f)));
         subdivisionRowBox.items.add(juce::FlexItem(*midiChannelLabels[i]).withFlex(0.25f).withMargin(juce::FlexItem::Margin(0.f, 5.f, 0.f, 0.f)));

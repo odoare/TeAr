@@ -61,6 +61,7 @@ public:
     // Getter and Setter for our custom string parameter
     void setArpeggiatorPattern (int index, const juce::String& pattern);
     const juce::String& getArpeggiatorPattern(int index) const;
+    void randomizeArpeggiator(int index);
     bool isArpeggiatorOn(int index) const;
 
     // Getter for the UI to know the current step
