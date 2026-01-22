@@ -446,17 +446,18 @@ void TeArAudioProcessorEditor::resized()
 
     for (int i = 0; i < 4; ++i)
     {
+        int leftMargin = 5;
+        int rightMargin = 5;
+        if (i == 0) leftMargin = 0;
+        if (i == 3) rightMargin = 0;
+
         // Add the On/Off button to the left of the subdivision label
-        subdivisionRowBox.items.add(juce::FlexItem(*arpeggiatorOnButtons[i]).withFlex(0.15f).withMargin(juce::FlexItem::Margin(0.f, 5.f, 0.f, 0.f)));
-        subdivisionRowBox.items.add(juce::FlexItem(*randomizeButtons[i]).withFlex(0.15f).withMargin(juce::FlexItem::Margin(0.f, 5.f, 0.f, 0.f)));
+        subdivisionRowBox.items.add(juce::FlexItem(*arpeggiatorOnButtons[i]).withFlex(0.15f).withMargin(juce::FlexItem::Margin(0.f, 2.f, 0.f, (float)leftMargin)));
+        subdivisionRowBox.items.add(juce::FlexItem(*randomizeButtons[i]).withFlex(0.15f).withMargin(juce::FlexItem::Margin(0.f, 2.f, 0.f, 0.f)));
         //subdivisionRowBox.items.add(juce::FlexItem(*subdivisionLabels[i]).withFlex(0.25f));
-        subdivisionRowBox.items.add(juce::FlexItem(*subdivisionBoxes[i]).withFlex(0.5f).withMargin(juce::FlexItem::Margin(0.f, 5.f, 0.f, 0.f)));
-        subdivisionRowBox.items.add(juce::FlexItem(*midiChannelLabels[i]).withFlex(0.25f).withMargin(juce::FlexItem::Margin(0.f, 5.f, 0.f, 0.f)));
-        subdivisionRowBox.items.add(juce::FlexItem(*midiChannelBoxes[i]).withFlex(0.3f).withMargin(juce::FlexItem::Margin(0.f, 10.f, 0.f, 0.f)));
-    }
-    // Add some space between the subdivision groups
-    for (int i = 0; i < 3; ++i) {
-        subdivisionRowBox.items.insert(i * 5 + 4, juce::FlexItem().withFlex(0.1f));
+        subdivisionRowBox.items.add(juce::FlexItem(*subdivisionBoxes[i]).withFlex(0.5f).withMargin(juce::FlexItem::Margin(0.f, 2.f, 0.f, 0.f)));
+        subdivisionRowBox.items.add(juce::FlexItem(*midiChannelLabels[i]).withFlex(0.18f).withMargin(juce::FlexItem::Margin(0.f, 0.f, 0.f, 0.f)));
+        subdivisionRowBox.items.add(juce::FlexItem(*midiChannelBoxes[i]).withFlex(0.4f).withMargin(juce::FlexItem::Margin(0.f, (float)rightMargin, 0.f, 0.f)));
     }
 
     controlsBox.items.add(juce::FlexItem(logo).withFlex(0.2f));
