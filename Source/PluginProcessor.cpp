@@ -432,6 +432,9 @@ void TeArAudioProcessor::setArpeggiatorPattern(int index, const juce::String& pa
             if (masterSamplesUntilNext >= 0.0)
                 arpeggiators.getReference(index).setSamplesUntilNextNote(masterSamplesUntilNext);
         }
+
+        // Notify the editor that the pattern has changed so it can update the text box.
+        sendChangeMessage();
     }
 }
 

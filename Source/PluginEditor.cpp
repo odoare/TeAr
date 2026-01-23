@@ -191,7 +191,27 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
         rndButton->setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
         rndButton->setColour(juce::TextButton::textColourOffId, arpColour);
         rndButton->setColour(juce::TextButton::textColourOnId, arpColour.brighter());
-        rndButton->onClick = [this, i] { audioProcessor.randomizeArpeggiator(i); };
+        
+        rndButton->onClick = [this, i, rndButton] {
+            auto& arp = audioProcessor.getArpeggiator(i);
+            
+            auto makeEuclidian = [&arp](int hits, int steps) {
+                // We need to cast away constness because makeEuclidianPattern is not const in Arpeggiator
+                // or we should make it const. Assuming we can call it:
+                return const_cast<Arpeggiator&>(arp).makeEuclidianPattern(hits, steps);
+            };
+            
+            auto makeRandom = [&arp]() {
+                return const_cast<Arpeggiator&>(arp).makeRandomPattern();
+            };
+            
+            auto onOk = [this, i](juce::String pattern) {
+                audioProcessor.setArpeggiatorPattern(i, pattern);
+            };
+
+            auto* content = new ArpPatternPopup(makeEuclidian, makeRandom, onOk);
+            juce::CallOutBox::launchAsynchronously(std::unique_ptr<juce::Component>(content), rndButton->getScreenBounds(), this);
+        };
     }
 
     for (int i = 0; i < 4; ++i)

@@ -12,6 +12,7 @@
 #include "PluginProcessor.h"
 #include "ScaleComponent.h"
 #include "FxmeLogo.h"
+#include "popupWindow.h"
 
 //==============================================================================
 /**

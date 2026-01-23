@@ -11,6 +11,8 @@
       <FILE id="pEFESa" name="logo686.png" compile="0" resource="1" file="Source/assets/logo686.png"/>
     </GROUP>
     <GROUP id="{CC837EB5-75FC-F5E2-72FA-39200551468C}" name="Source">
+      <FILE id="Dss2fW" name="popupWindow.cpp" compile="1" resource="0" file="Source/popupWindow.cpp"/>
+      <FILE id="VCzQ0V" name="popupWindow.h" compile="0" resource="0" file="Source/popupWindow.h"/>
       <FILE id="IpBmf2" name="FxmeLogo.h" compile="0" resource="0" file="Source/FxmeLogo.h"/>
       <FILE id="fYSJK4" name="FxmeLogo.cpp" compile="1" resource="0" file="Source/FxmeLogo.cpp"/>
       <FILE id="fapJYP" name="ScaleComponent.cpp" compile="1" resource="0"
