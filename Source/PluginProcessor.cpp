@@ -555,7 +555,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout TeArAudioProcessor::createPa
         "chordMethod",
         "Chord Method",
         chordMethods,
-        0)); // Default to "Notes played"
+        1)); // Default to "Chord played as is"
 
     for (int i = 0; i < 4; ++i)
     {
