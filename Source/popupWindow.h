@@ -15,7 +15,7 @@
 class ArpPatternPopup : public juce::Component
 {
 public:
-    ArpPatternPopup(std::function<juce::String(int, int)> makeEuclidian,
+    ArpPatternPopup(std::function<juce::String(int, int, int)> makeEuclidian,
                     std::function<juce::String()> makeRandom,
                     std::function<void(juce::String)> onOk,
                     juce::Colour color);
@@ -26,14 +26,14 @@ public:
 
 private:
     juce::Label patternDisplay;
-    juce::Label hitsLabel, stepsLabel;
-    juce::TextEditor hitsEditor, stepsEditor;
+    juce::Label hitsLabel, stepsLabel, rotateLabel;
+    juce::TextEditor hitsEditor, stepsEditor, rotateEditor;
     juce::TextButton randomizeBtn{ "Randomize" };
     juce::TextButton euclidBtn{ "Make Euclidean" };
     juce::TextButton okBtn{ "OK" };
     juce::TextButton cancelBtn{ "Cancel" };
 
-    std::function<juce::String(int, int)> makeEuclidianCallback;
+    std::function<juce::String(int, int, int)> makeEuclidianCallback;
     std::function<juce::String()> makeRandomCallback;
     std::function<void(juce::String)> onOkCallback;
     juce::Colour mainColor;

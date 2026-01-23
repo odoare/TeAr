@@ -10,7 +10,7 @@
 
 #include "popupWindow.h"
 
-ArpPatternPopup::ArpPatternPopup(std::function<juce::String(int, int)> makeEuclidian,
+ArpPatternPopup::ArpPatternPopup(std::function<juce::String(int, int, int)> makeEuclidian,
                                  std::function<juce::String()> makeRandom,
                                  std::function<void(juce::String)> onOk,
                                  juce::Colour color)
@@ -48,6 +48,17 @@ ArpPatternPopup::ArpPatternPopup(std::function<juce::String(int, int)> makeEucli
     stepsEditor.setColour(juce::TextEditor::backgroundColourId, juce::Colours::darkblue.darker(2.f));
     stepsEditor.setColour(juce::TextEditor::textColourId, mainColor);
 
+    addAndMakeVisible(rotateLabel);
+    rotateLabel.setText("Rot:", juce::dontSendNotification);
+    rotateLabel.setColour(juce::Label::textColourId, mainColor);
+    rotateLabel.setJustificationType(juce::Justification::centredRight);
+
+    addAndMakeVisible(rotateEditor);
+    rotateEditor.setText("0");
+    rotateEditor.setInputRestrictions(3, "-0123456789");
+    rotateEditor.setColour(juce::TextEditor::backgroundColourId, juce::Colours::darkblue.darker(2.f));
+    rotateEditor.setColour(juce::TextEditor::textColourId, mainColor);
+
     addAndMakeVisible(randomizeBtn);
     randomizeBtn.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
     randomizeBtn.setColour(juce::TextButton::textColourOffId, mainColor);
@@ -66,7 +77,8 @@ ArpPatternPopup::ArpPatternPopup(std::function<juce::String(int, int)> makeEucli
         {
             int hits = hitsEditor.getText().getIntValue();
             int steps = stepsEditor.getText().getIntValue();
-            patternDisplay.setText(makeEuclidianCallback(hits, steps), juce::dontSendNotification);
+            int rotation = rotateEditor.getText().getIntValue();
+            patternDisplay.setText(makeEuclidianCallback(hits, steps, rotation), juce::dontSendNotification);
         }
     };
 
@@ -91,7 +103,7 @@ ArpPatternPopup::ArpPatternPopup(std::function<juce::String(int, int)> makeEucli
             box->dismiss();
     };
 
-    setSize(300, 200);
+    setSize(360, 200);
 }
 
 ArpPatternPopup::~ArpPatternPopup()
@@ -128,6 +140,8 @@ void ArpPatternPopup::resized()
     hitsEditor.setBounds(euclidRow.removeFromLeft(40));
     stepsLabel.setBounds(euclidRow.removeFromLeft(50));
     stepsEditor.setBounds(euclidRow.removeFromLeft(40));
+    rotateLabel.setBounds(euclidRow.removeFromLeft(40));
+    rotateEditor.setBounds(euclidRow.removeFromLeft(40));
     euclidRow.removeFromLeft(10);
     euclidBtn.setBounds(euclidRow);
 

@@ -195,10 +195,10 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
         rndButton->onClick = [this, i, rndButton, arpColour] {
             auto& arp = audioProcessor.getArpeggiator(i);
             
-            auto makeEuclidian = [&arp](int hits, int steps) {
+            auto makeEuclidian = [&arp](int hits, int steps, int rotation) {
                 // We need to cast away constness because makeEuclidianPattern is not const in Arpeggiator
                 // or we should make it const. Assuming we can call it:
-                return const_cast<Arpeggiator&>(arp).makeEuclidianPattern(hits, steps);
+                return const_cast<Arpeggiator&>(arp).makeEuclidianPattern(hits, steps, rotation);
             };
             
             auto makeRandom = [&arp]() {
