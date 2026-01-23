@@ -17,7 +17,8 @@ class ArpPatternPopup : public juce::Component
 public:
     ArpPatternPopup(std::function<juce::String(int, int)> makeEuclidian,
                     std::function<juce::String()> makeRandom,
-                    std::function<void(juce::String)> onOk);
+                    std::function<void(juce::String)> onOk,
+                    juce::Colour color);
     ~ArpPatternPopup() override;
 
     void paint (juce::Graphics&) override;
@@ -35,6 +36,7 @@ private:
     std::function<juce::String(int, int)> makeEuclidianCallback;
     std::function<juce::String()> makeRandomCallback;
     std::function<void(juce::String)> onOkCallback;
+    juce::Colour mainColor;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ArpPatternPopup)
 };

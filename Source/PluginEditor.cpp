@@ -192,7 +192,7 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
         rndButton->setColour(juce::TextButton::textColourOffId, arpColour);
         rndButton->setColour(juce::TextButton::textColourOnId, arpColour.brighter());
         
-        rndButton->onClick = [this, i, rndButton] {
+        rndButton->onClick = [this, i, rndButton, arpColour] {
             auto& arp = audioProcessor.getArpeggiator(i);
             
             auto makeEuclidian = [&arp](int hits, int steps) {
@@ -209,7 +209,7 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
                 audioProcessor.setArpeggiatorPattern(i, pattern);
             };
 
-            auto* content = new ArpPatternPopup(makeEuclidian, makeRandom, onOk);
+            auto* content = new ArpPatternPopup(makeEuclidian, makeRandom, onOk, arpColour);
             juce::CallOutBox::launchAsynchronously(std::unique_ptr<juce::Component>(content), rndButton->getScreenBounds(), this);
         };
     }
