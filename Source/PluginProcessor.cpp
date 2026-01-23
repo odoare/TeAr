@@ -39,6 +39,15 @@ TeArAudioProcessor::TeArAudioProcessor()
     apvts.addParameterListener("scaleRoot", this);
     apvts.addParameterListener("scaleType", this);
     apvts.addParameterListener("followMidiIn", this);
+
+    // Initialize arpeggiators with the current parameter values
+    int currentChordMethod = static_cast<int>(apvts.getRawParameterValue("chordMethod")->load());
+    for (int i = 0; i < 4; ++i)
+    {
+        arpeggiators.getReference(i).setChordMethod(currentChordMethod);
+        if (auto* p = apvts.getRawParameterValue("subdivision" + juce::String(i + 1)))
+            arpeggiators.getReference(i).setSubdivision(static_cast<int>(p->load()));
+    }
 }
 
 TeArAudioProcessor::~TeArAudioProcessor()
