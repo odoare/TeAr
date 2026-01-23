@@ -58,6 +58,12 @@ private:
         // This lambda will be called when the user presses Return without Shift.
         std::function<void()> onReturnKey;
 
+        void mouseDown (const juce::MouseEvent& event) override
+        {
+            grabKeyboardFocus();
+            juce::TextEditor::mouseDown (event);
+        }
+
         bool keyPressed (const juce::KeyPress& key) override
         {
             // We only care about the Return key.
