@@ -17,6 +17,16 @@ Video demo: [https://www.youtube.com/watch?v=__oc9Wncv1Y](https://www.youtube.co
 *   **Comprehensive Scale Library**: A wide selection of musical scales and modes to define the harmonic landscape.
 *   **Visual Feedback**: A real-time scale display highlights the active scale, its root, and the notes currently being played by each arpeggiator, color-coded for clarity.
 
+## Pattern Generator
+
+Clicking the `?` button next to an arpeggiator's On/Off switch opens the Pattern Generator popup. This tool allows you to quickly create new rhythmic patterns.
+
+*   **Randomize**: Generates a random pattern string using a mix of notes, rests, and modifiers.
+*   **Euclidean Rhythm**: Generates a Euclidean rhythm pattern based on the following parameters:
+    *   **Hits**: The number of active notes (pulses) in the sequence.
+    *   **Steps**: The total length of the sequence.
+    *   **Rot**: Rotates the pattern by a specified number of steps.
+
 ## Pattern Language Documentation
 
 The pattern string consists of characters that define the arpeggio's behavior at each step.

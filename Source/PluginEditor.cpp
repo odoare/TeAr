@@ -191,7 +191,6 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
         rndButton->setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
         rndButton->setColour(juce::TextButton::textColourOffId, arpColour);
         rndButton->setColour(juce::TextButton::textColourOnId, arpColour.brighter());
-        
         rndButton->onClick = [this, i, rndButton, arpColour] {
             auto& arp = audioProcessor.getArpeggiator(i);
             
