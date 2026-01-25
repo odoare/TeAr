@@ -9,6 +9,8 @@ At its core, TeAr is scale-aware. You can select a root note and one of many sca
 
 Video demo: [https://www.youtube.com/watch?v=__oc9Wncv1Y](https://www.youtube.com/watch?v=__oc9Wncv1Y)
 
+Video tutorial: [https://www.youtube.com/watch?v=pWOuQep7nIs](https://www.youtube.com/watch?v=pWOuQep7nIs)
+
 ## Key Features
 
 *   **Four Independent Arpeggiator Engines**: Create complex polyrhythms and layered melodic lines.
