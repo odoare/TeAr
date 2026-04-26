@@ -9,6 +9,7 @@
 */
 
 #include "ScaleComponent.h"
+#include "ArpInstance.h"
 
 ScaleComponent::ScaleComponent()
 {
@@ -108,11 +109,5 @@ void ScaleComponent::updateScale(const juce::Array<int> &newScaleNotes, int newR
 
 juce::Colour ScaleComponent::getColourForArp(int arpIndex) const
 {
-    static const juce::Colour arpColours[] = {
-        juce::Colours::lime,
-        juce::Colours::cyan,
-        juce::Colours::magenta,
-        juce::Colours::yellow
-    };
-    return juce::isPositiveAndBelow(arpIndex, 4) ? arpColours[arpIndex] : juce::Colours::green;
+    return getArpColour (arpIndex);
 }

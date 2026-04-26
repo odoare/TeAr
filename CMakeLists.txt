@@ -39,6 +39,7 @@ juce_add_binary_data(TeArBinaryData SOURCES
 target_sources(TeAr PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp
+    Source/ArpeggiatorComponent.cpp
     Source/popupWindow.cpp
     Source/FxmeLogo.cpp
     Source/ScaleComponent.cpp

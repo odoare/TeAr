@@ -1,14 +1,5 @@
-/*
-  ==============================================================================
- 
-    This file contains the basic framework code for a JUCE plugin processor.
- 
-  ==============================================================================
-*/
- 
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
-//#include <memory>
 
 //==============================================================================
 TeArAudioProcessor::TeArAudioProcessor()
@@ -22,53 +13,30 @@ TeArAudioProcessor::TeArAudioProcessor()
                      #endif
                        )
      #endif
-    , apvts(*this, nullptr, "Parameters", createParameters())
+    , apvts (*this, nullptr, "Parameters", createParameters())
 {
+    // Default: 4 arpeggiators (matches v1 behavior)
     for (int i = 0; i < 4; ++i)
     {
-        arpeggiators.add(Arpeggiator());
-        arpeggiatorOnStates.add(true); // Default to ON
-        arpeggiatorMidiChannels.add(i + 1); // Default to channel i + 1
-        apvts.addParameterListener("midiChannel" + juce::String(i + 1), this);
-        apvts.addParameterListener("arpOn" + juce::String(i + 1), this);
-        arpeggiatorPatterns.add("1 2 3");
-        apvts.addParameterListener("subdivision" + juce::String(i + 1), this);
+        ArpInstance arp;
+        arp.midiChannel = i + 1;
+        arps.push_back (std::move (arp));
     }
 
-    apvts.addParameterListener("chordMethod", this);
-    apvts.addParameterListener("scaleRoot", this);
-    apvts.addParameterListener("scaleType", this);
-    apvts.addParameterListener("followMidiIn", this);
+    apvts.addParameterListener ("chordMethod", this);
 
-    // Initialize arpeggiators with the current parameter values
-    int currentChordMethod = static_cast<int>(apvts.getRawParameterValue("chordMethod")->load());
-    for (int i = 0; i < 4; ++i)
-    {
-        arpeggiators.getReference(i).setChordMethod(currentChordMethod);
-        if (auto* p = apvts.getRawParameterValue("subdivision" + juce::String(i + 1)))
-            arpeggiators.getReference(i).setSubdivision(static_cast<int>(p->load()));
-    }
+    int chordMethod = (int) apvts.getRawParameterValue ("chordMethod")->load();
+    for (auto& arp : arps)
+        arp.engine.setChordMethod (chordMethod);
 }
 
 TeArAudioProcessor::~TeArAudioProcessor()
 {
-    for (int i = 0; i < 4; ++i)
-        apvts.removeParameterListener("midiChannel" + juce::String(i + 1), this);
-    for (int i = 0; i < 4; ++i)
-        apvts.removeParameterListener("arpOn" + juce::String(i + 1), this);
-    for (int i = 0; i < 4; ++i)
-        apvts.removeParameterListener("subdivision" + juce::String(i + 1), this);
-    apvts.removeParameterListener("chordMethod", this);
-    apvts.removeParameterListener("scaleRoot", this);
-    apvts.removeParameterListener("scaleType", this);
-    apvts.removeParameterListener("followMidiIn", this);
+    apvts.removeParameterListener ("chordMethod", this);
 }
 
 //==============================================================================
-const juce::String TeArAudioProcessor::getName() const
-{
-    return JucePlugin_Name;
-}
+const juce::String TeArAudioProcessor::getName() const  { return JucePlugin_Name; }
 
 bool TeArAudioProcessor::acceptsMidi() const
 {
@@ -97,51 +65,29 @@ bool TeArAudioProcessor::isMidiEffect() const
    #endif
 }
 
-double TeArAudioProcessor::getTailLengthSeconds() const
-{
-    return 0.0;
-}
+double TeArAudioProcessor::getTailLengthSeconds() const { return 0.0; }
 
-int TeArAudioProcessor::getNumPrograms()
-{
-    return 1;   // NB: some hosts don't cope very well if you tell them there are 0 programs,
-                // so this should be at least 1, even if you're not really implementing programs.
-}
-
-int TeArAudioProcessor::getCurrentProgram()
-{
-    return 0;
-}
-
-void TeArAudioProcessor::setCurrentProgram (int index)
-{
-}
-
-const juce::String TeArAudioProcessor::getProgramName (int index)
-{
-    return {};
-}
-
-void TeArAudioProcessor::changeProgramName (int index, const juce::String& newName)
-{
-}
+int  TeArAudioProcessor::getNumPrograms()                              { return 1; }
+int  TeArAudioProcessor::getCurrentProgram()                           { return 0; }
+void TeArAudioProcessor::setCurrentProgram (int)                       {}
+const juce::String TeArAudioProcessor::getProgramName (int)            { return {}; }
+void TeArAudioProcessor::changeProgramName (int, const juce::String&)  {}
 
 //==============================================================================
-void TeArAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void TeArAudioProcessor::prepareToPlay (double sr, int samplesPerBlock)
 {
-    juce::ignoreUnused(samplesPerBlock);
-    for (int i = 0; i < arpeggiators.size(); ++i)
+    juce::ignoreUnused (samplesPerBlock);
+    sampleRate = sr;
+
+    juce::ScopedLock lock (arpsLock);
+    for (auto& arp : arps)
     {
-        arpeggiators.getReference(i).prepareToPlay(sampleRate);
-        arpeggiators.getReference(i).setPattern(arpeggiatorPatterns[i]);
+        arp.engine.prepareToPlay (sampleRate);
+        arp.engine.setPattern (arp.pattern);
     }
 }
 
-void TeArAudioProcessor::releaseResources()
-{
-    // When playback stops, you can use this as an opportunity to free up any
-    // spare memory, etc.
-}
+void TeArAudioProcessor::releaseResources() {}
 
 #ifndef JucePlugin_PreferredChannelConfigurations
 bool TeArAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -150,20 +96,13 @@ bool TeArAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) con
     juce::ignoreUnused (layouts);
     return true;
   #else
-    // This is the place where you check if the layout is supported.
-    // In this template code we only support mono or stereo.
-    // Some plugin hosts, such as certain GarageBand versions, will only
-    // load plugins that support stereo bus layouts.
     if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
      && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
         return false;
-
-    // This checks if the input layout matches the output layout
    #if ! JucePlugin_IsSynth
     if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
         return false;
    #endif
-
     return true;
   #endif
 }
@@ -172,186 +111,149 @@ bool TeArAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) con
 void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
+    juce::ScopedLock lock (arpsLock);
+
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
 
     bool transportJustStopped = false;
 
-    // --- Get Host Transport Information ---
+    // --- Host transport ---
     if (auto* ph = getPlayHead())
     {
         juce::AudioPlayHead::CurrentPositionInfo positionInfo;
-        JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE("-Wdeprecated-declarations")
-        if (ph->getCurrentPosition(positionInfo))
+        JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE ("-Wdeprecated-declarations")
+        if (ph->getCurrentPosition (positionInfo))
         JUCE_END_IGNORE_WARNINGS_GCC_LIKE
         {
-            // Update tempo whenever host provides a valid value
             if (positionInfo.bpm > 0.0)
             {
                 lastKnownBPM = positionInfo.bpm;
-                for (auto& arp : arpeggiators) arp.setTempo(lastKnownBPM);
+                for (auto& arp : arps) arp.engine.setTempo (lastKnownBPM);
             }
 
-            // Sync the arpeggiator to the host's grid if playing
-            // Only sync arpeggiators that are turned on
             if (positionInfo.isPlaying)
-                for (auto& arp : arpeggiators) arp.syncToPlayHead(positionInfo);
+                for (auto& arp : arps) arp.engine.syncToPlayHead (positionInfo);
             else if (wasPlaying)
                 transportJustStopped = true;
 
-            if (positionInfo.isPlaying && !wasPlaying) // Playback just started
-            {
-                // This block can be used for logic that needs to run only on the first block of playback.
-            }
             wasPlaying = positionInfo.isPlaying;
         }
     }
 
-    // --- Handle incoming MIDI notes to track held notes ---
+    // --- Track held notes ---
     bool notesChanged = false;
-    for (const auto metadata : midiMessages) // This is why we must not clear midiMessages at the start!
+    for (const auto metadata : midiMessages)
     {
         const auto msg = metadata.getMessage();
         if (msg.isNoteOn())
         {
-            heldNotes.addIfNotAlreadyThere(msg.getNoteNumber());
-            // Update the arpeggiator's velocity based on the incoming note's velocity, only for active arps.
-            for (int i = 0; i < arpeggiators.size(); ++i)
-                if (arpeggiatorOnStates[i])
-                    arpeggiators.getReference(i).setGlobalVelocityFromMidi(msg.getVelocity());
+            heldNotes.addIfNotAlreadyThere (msg.getNoteNumber());
+            for (auto& arp : arps)
+                if (arp.onState)
+                    arp.engine.setGlobalVelocityFromMidi (msg.getVelocity());
             notesChanged = true;
         }
         else if (msg.isNoteOff())
         {
-            heldNotes.removeFirstMatchingValue(msg.getNoteNumber());
+            heldNotes.removeFirstMatchingValue (msg.getNoteNumber());
             notesChanged = true;
         }
     }
 
     if (notesChanged)
     {
-        MidiTools::Chord playedChord("");
-        auto chordMethod = static_cast<int>(apvts.getRawParameterValue("chordMethod")->load());
+        MidiTools::Chord playedChord ("");
+        auto chordMethod = (int) apvts.getRawParameterValue ("chordMethod")->load();
 
         switch (chordMethod)
         {
-            case 0: // Notes played
-                playedChord.setDegreesByArray(heldNotes);
+            case 0:
+                playedChord.setDegreesByArray (heldNotes);
                 break;
-            case 1: // Chord played as is
-                playedChord.setNotesByArray(heldNotes);
+            case 1:
+                playedChord.setNotesByArray (heldNotes);
                 break;
-            case 2: // Single note
+            case 2:
                 if (!heldNotes.isEmpty())
                 {
                     int lastNote = heldNotes.getLast();
                     int lastNoteSemitone = lastNote % 12;
-
-                    auto followMidiIn = apvts.getRawParameterValue("followMidiIn")->load();
-                    auto scaleTypeIndex = static_cast<int>(apvts.getRawParameterValue("scaleType")->load());
-                    auto scaleType = static_cast<MidiTools::Scale::Type>(scaleTypeIndex);
+                    auto followMidiIn   = apvts.getRawParameterValue ("followMidiIn")->load();
+                    auto scaleTypeIndex = (int) apvts.getRawParameterValue ("scaleType")->load();
+                    auto scaleType      = static_cast<MidiTools::Scale::Type> (scaleTypeIndex);
 
                     if (followMidiIn > 0.5f)
                     {
-                        // The incoming note sets the root of the scale.
-                        // We update the parameter, which will also update the UI.
-                        apvts.getParameter("scaleRoot")->setValueNotifyingHost(lastNoteSemitone / 11.0f);
-
-                        MidiTools::Scale currentScale(lastNoteSemitone, scaleType);
-                        // Set the arpeggiator's base octave from the played note, only for active arps.
-                        for (int i = 0; i < arpeggiators.size(); ++i)
-                            if (arpeggiatorOnStates[i])
-                                arpeggiators.getReference(i).setBaseOctaveFromNote(lastNote);
-                        // The chord is built from the root of this new scale.
-                        playedChord = MidiTools::Chord::fromScaleAndDegree(currentScale, 0);
+                        apvts.getParameter ("scaleRoot")->setValueNotifyingHost (lastNoteSemitone / 11.0f);
+                        MidiTools::Scale currentScale (lastNoteSemitone, scaleType);
+                        for (auto& arp : arps)
+                            if (arp.onState) arp.engine.setBaseOctaveFromNote (lastNote);
+                        playedChord = MidiTools::Chord::fromScaleAndDegree (currentScale, 0);
                     }
                     else
                     {
-                        // Use the fixed scale from the UI to find the degree of the played note.
-                        auto rootNoteIndex = static_cast<int>(apvts.getRawParameterValue("scaleRoot")->load());
-                        MidiTools::Scale currentScale(rootNoteIndex, scaleType);
+                        auto rootNoteIndex = (int) apvts.getRawParameterValue ("scaleRoot")->load();
+                        MidiTools::Scale currentScale (rootNoteIndex, scaleType);
                         const auto& scaleNotes = currentScale.getNotes();
-                        int degree = scaleNotes.indexOf(lastNoteSemitone);
+                        int degree = scaleNotes.indexOf (lastNoteSemitone);
 
-                        if (degree != -1) // If the note is in the scale
+                        if (degree != -1)
                         {
-                            for (int i = 0; i < arpeggiators.size(); ++i)
-                                if (arpeggiatorOnStates[i])
-                                    arpeggiators.getReference(i).setBaseOctaveFromNote(lastNote);
-                            playedChord = MidiTools::Chord::fromScaleAndDegree(currentScale, degree);
+                            for (auto& arp : arps)
+                                if (arp.onState) arp.engine.setBaseOctaveFromNote (lastNote);
+                            playedChord = MidiTools::Chord::fromScaleAndDegree (currentScale, degree);
                         }
-                        else // Note is not in scale, find nearest below
+                        else
                         {
                             int nearestDegree = -1;
                             for (int i = 1; i < 12; ++i)
                             {
                                 int semitoneToTest = (lastNoteSemitone - i + 12) % 12;
-                                int foundDegree = scaleNotes.indexOf(semitoneToTest);
-                                if (foundDegree != -1)
-                                {
-                                    nearestDegree = foundDegree;
-                                    break;
-                                }
+                                int foundDegree = scaleNotes.indexOf (semitoneToTest);
+                                if (foundDegree != -1) { nearestDegree = foundDegree; break; }
                             }
-                            for (int i = 0; i < arpeggiators.size(); ++i)
-                                if (arpeggiatorOnStates[i])
-                                    arpeggiators.getReference(i).setBaseOctaveFromNote(lastNote);
-                            playedChord = MidiTools::Chord::fromScaleAndDegree(currentScale, nearestDegree != -1 ? nearestDegree : 0);
+                            for (auto& arp : arps)
+                                if (arp.onState) arp.engine.setBaseOctaveFromNote (lastNote);
+                            playedChord = MidiTools::Chord::fromScaleAndDegree (currentScale,
+                                          nearestDegree != -1 ? nearestDegree : 0);
                         }
                     }
                 }
                 break;
         }
-        // Set chord for all active arpeggiators
-        for (int i = 0; i < arpeggiators.size(); ++i)
-            if (arpeggiatorOnStates[i]) arpeggiators.getReference(i).setChord(playedChord);
-        // std::cout << "Notes: " ;
-        // for (int note : heldNotes)
-        //     std::cout << note << " ";
-        // std::cout << std::endl;
-        // std::cout << "Chord: " << playedChord.getName() << std::endl;
+
+        for (auto& arp : arps)
+            if (arp.onState) arp.engine.setChord (playedChord);
     }
 
-    // We clear the incoming buffer and fill it with arpeggiator output
     midiMessages.clear();
 
-    // If the user just released the last key, send a note off.
     if (notesChanged && heldNotes.isEmpty())
     {
-        for (int i = 0; i < arpeggiators.size(); ++i)
-            if (arpeggiatorOnStates[i])
-                midiMessages.addEvents(arpeggiators.getReference(i).turnOff(arpeggiatorMidiChannels[i]), 0, -1, 0);
+        for (auto& arp : arps)
+            if (arp.onState)
+                midiMessages.addEvents (arp.engine.turnOff (arp.midiChannel), 0, -1, 0);
     }
-    // If the transport just stopped, also send a note off.
-    // This is placed after the clear() call to ensure the message is not erased.
+
     if (transportJustStopped)
     {
-        for (int i = 0; i < arpeggiators.size(); ++i)
-            if (arpeggiatorOnStates[i])
-                midiMessages.addEvents(arpeggiators.getReference(i).reset(arpeggiatorMidiChannels[i]), 0, -1, 0);
+        for (auto& arp : arps)
+            if (arp.onState)
+                midiMessages.addEvents (arp.engine.reset (arp.midiChannel), 0, -1, 0);
     }
 
-
-    // this code if your algorithm always overwrites all the output channels.
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels. Alternatively,
-    // you can process the samples with the channels interleaved by keeping the same state.
     if (!heldNotes.isEmpty())
-        for (int i = 0; i < arpeggiators.size(); ++i)
-            if (arpeggiatorOnStates[i])
-                midiMessages.addEvents(arpeggiators.getReference(i).processBlock(buffer.getNumSamples(), arpeggiatorMidiChannels[i]), 0, -1, 0);
+        for (auto& arp : arps)
+            if (arp.onState)
+                midiMessages.addEvents (arp.engine.processBlock (buffer.getNumSamples(), arp.midiChannel), 0, -1, 0);
 }
 
 //==============================================================================
-bool TeArAudioProcessor::hasEditor() const
-{
-    return true; // (change this to false if you choose to not supply an editor)
-}
+bool TeArAudioProcessor::hasEditor() const { return true; }
 
 juce::AudioProcessorEditor* TeArAudioProcessor::createEditor()
 {
@@ -361,131 +263,244 @@ juce::AudioProcessorEditor* TeArAudioProcessor::createEditor()
 //==============================================================================
 void TeArAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    // Get the state from APVTS
+    juce::ScopedLock lock (arpsLock);
+
     auto apvtsState = apvts.copyState();
     std::unique_ptr<juce::XmlElement> xml (apvtsState.createXml());
 
-    // Manually add our string parameters to the XML
-    for (int i = 0; i < arpeggiatorPatterns.size(); ++i)
-        xml->setAttribute("arpeggiatorPattern" + juce::String(i), arpeggiatorPatterns[i]);
-    for (int i = 0; i < arpeggiatorOnStates.size(); ++i)
-        xml->setAttribute("arpOn" + juce::String(i), arpeggiatorOnStates[i]);
+    // New format: store arps as child element
+    auto* arpsXml = xml->createNewChildElement ("Arpeggiators");
+    arpsXml->setAttribute ("count", (int) arps.size());
+    for (int i = 0; i < (int) arps.size(); ++i)
+    {
+        auto* arpXml = arpsXml->createNewChildElement ("Arp");
+        arpXml->setAttribute ("index",       i);
+        arpXml->setAttribute ("pattern",     arps[i].pattern);
+        arpXml->setAttribute ("on",          arps[i].onState ? 1 : 0);
+        arpXml->setAttribute ("midiChannel", arps[i].midiChannel);
+        arpXml->setAttribute ("subdivision", arps[i].subdivision);
+    }
 
-    // Convert the XML to binary and store it.
-    copyXmlToBinary(*xml, destData);
+    copyXmlToBinary (*xml, destData);
 }
 
 void TeArAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
- 
-    if (xmlState != nullptr)
+    if (xmlState == nullptr) return;
+
+    if (xmlState->hasTagName (apvts.state.getType()))
+        apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
+
+    juce::ScopedLock lock (arpsLock);
+
+    if (auto* arpsXml = xmlState->getChildByName ("Arpeggiators"))
     {
-        // Restore the APVTS state
-        if (xmlState->hasTagName (apvts.state.getType()))
-            apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
+        // --- New format ---
+        arps.clear();
+        int count = arpsXml->getIntAttribute ("count", 1);
+        count = juce::jlimit (1, 64, count);
 
-        // Sync cached MIDI channels and subdivisions from APVTS
-        for (int i = 0; i < arpeggiatorMidiChannels.size(); ++i)
+        for (auto* arpXml : arpsXml->getChildIterator())
         {
-            if (auto* p = apvts.getRawParameterValue("midiChannel" + juce::String(i + 1)))
-                arpeggiatorMidiChannels.set(i, static_cast<int>(*p));
+            if (!arpXml->hasTagName ("Arp")) continue;
+            ArpInstance arp;
+            arp.pattern     = arpXml->getStringAttribute ("pattern", "1 2 3");
+            arp.onState     = arpXml->getIntAttribute    ("on",          1) != 0;
+            arp.midiChannel = arpXml->getIntAttribute    ("midiChannel", 1);
+            arp.subdivision = arpXml->getIntAttribute    ("subdivision", 4);
 
-            if (auto* p = apvts.getRawParameterValue("subdivision" + juce::String(i + 1)))
-                arpeggiators.getReference(i).setSubdivision(static_cast<int>(*p));
+            arp.engine.prepareToPlay (sampleRate);
+            arp.engine.setPattern    (arp.pattern);
+            arp.engine.setSubdivision(arp.subdivision);
+            arp.engine.setTempo      (lastKnownBPM);
+            arp.engine.setChordMethod((int) apvts.getRawParameterValue ("chordMethod")->load());
+            arps.push_back (std::move (arp));
         }
 
-        // Manually restore our string parameters from the same XML
-        for (int i = 0; i < arpeggiatorPatterns.size(); ++i)
+        // Safety: ensure at least one arp
+        if (arps.empty())
+            arps.push_back (ArpInstance{});
+    }
+    else
+    {
+        // --- Legacy format (v1: 4 fixed arps, params stored as APVTS PARAMs + attributes) ---
+        auto getParam = [&] (const juce::String& paramId, float def) -> float
         {
-            juce::String attributeName = "arpeggiatorPattern" + juce::String(i);
-            if (xmlState->hasAttribute(attributeName))
-            {
-                arpeggiatorPatterns.set(i, xmlState->getStringAttribute(attributeName, "0 1 2"));
-                arpeggiators.getReference(i).setPattern(arpeggiatorPatterns[i]);
-            }
-        }
-        for (int i = 0; i < arpeggiatorOnStates.size(); ++i)
+            for (auto* child : xmlState->getChildIterator())
+                if (child->hasTagName ("PARAM") && child->getStringAttribute ("id") == paramId)
+                    return (float) child->getDoubleAttribute ("value", def);
+            return def;
+        };
+
+        arps.clear();
+        for (int i = 0; i < 4; ++i)
         {
-            juce::String attributeName = "arpOn" + juce::String(i);
-            if (xmlState->hasAttribute(attributeName))
-            {
-                arpeggiatorOnStates.set(i, xmlState->getBoolAttribute(attributeName, true));
-            }
+            ArpInstance arp;
+            arp.pattern     = xmlState->getStringAttribute ("arpeggiatorPattern" + juce::String (i), "1 2 3");
+            arp.onState     = xmlState->getBoolAttribute   ("arpOn"             + juce::String (i), true);
+            arp.midiChannel = (int) getParam ("midiChannel"  + juce::String (i + 1), (float) (i + 1));
+            arp.subdivision = (int) getParam ("subdivision"  + juce::String (i + 1), 4.0f);
+
+            arp.engine.prepareToPlay (sampleRate);
+            arp.engine.setPattern    (arp.pattern);
+            arp.engine.setSubdivision(arp.subdivision);
+            arp.engine.setTempo      (lastKnownBPM);
+            arp.engine.setChordMethod((int) apvts.getRawParameterValue ("chordMethod")->load());
+            arps.push_back (std::move (arp));
         }
-        // Notify listeners (like the editor) that our manual state has changed.
-        sendChangeMessage();
+    }
+
+    sendChangeMessage();
+}
+
+//==============================================================================
+// Arpeggiator management
+int TeArAudioProcessor::getNumArpeggiators() const
+{
+    juce::ScopedLock lock (arpsLock);
+    return (int) arps.size();
+}
+
+void TeArAudioProcessor::addArpeggiator()
+{
+    {
+        juce::ScopedLock lock (arpsLock);
+        ArpInstance arp;
+        arp.midiChannel = juce::jmin ((int) arps.size() + 1, 16);
+        arp.engine.prepareToPlay (sampleRate);
+        arp.engine.setSubdivision (arp.subdivision);
+        arp.engine.setTempo       (lastKnownBPM);
+        arp.engine.setChordMethod ((int) apvts.getRawParameterValue ("chordMethod")->load());
+        arp.engine.setPattern     (arp.pattern);
+        arps.push_back (std::move (arp));
+    }
+    sendChangeMessage();
+}
+
+void TeArAudioProcessor::removeArpeggiator (int index)
+{
+    {
+        juce::ScopedLock lock (arpsLock);
+        if ((int) arps.size() <= 1) return;
+        if (!juce::isPositiveAndBelow (index, (int) arps.size())) return;
+        arps.erase (arps.begin() + index);
+    }
+    sendChangeMessage();
+}
+
+//==============================================================================
+// Per-arp accessors
+
+void TeArAudioProcessor::setArpeggiatorPattern (int index, const juce::String& pattern)
+{
+    {
+        juce::ScopedLock lock (arpsLock);
+        if (!juce::isPositiveAndBelow (index, (int) arps.size())) return;
+        arps[index].pattern = pattern;
+        arps[index].engine.setPattern (pattern);
+
+        if (!wasPlaying && arps[index].onState)
+        {
+            double master = -1.0;
+            for (int i = 0; i < (int) arps.size(); ++i)
+                if (i != index && arps[i].onState) { master = arps[i].engine.getSamplesUntilNextNote(); break; }
+            if (master >= 0.0)
+                arps[index].engine.setSamplesUntilNextNote (master);
+        }
+    }
+    sendChangeMessage();
+}
+
+const juce::String& TeArAudioProcessor::getArpeggiatorPattern (int index) const
+{
+    juce::ScopedLock lock (arpsLock);
+    if (juce::isPositiveAndBelow (index, (int) arps.size()))
+        return arps[index].pattern;
+    static const juce::String empty;
+    return empty;
+}
+
+void TeArAudioProcessor::randomizeArpeggiator (int index)
+{
+    {
+        juce::ScopedLock lock (arpsLock);
+        if (!juce::isPositiveAndBelow (index, (int) arps.size())) return;
+        arps[index].engine.randomize();
+        arps[index].pattern = arps[index].engine.getPattern();
+    }
+    sendChangeMessage();
+}
+
+void TeArAudioProcessor::setArpeggiatorOn (int index, bool on)
+{
+    juce::ScopedLock lock (arpsLock);
+    if (!juce::isPositiveAndBelow (index, (int) arps.size())) return;
+    arps[index].onState = on;
+
+    if (on && !wasPlaying)
+    {
+        double master = -1.0;
+        for (int i = 0; i < (int) arps.size(); ++i)
+            if (i != index && arps[i].onState) { master = arps[i].engine.getSamplesUntilNextNote(); break; }
+        if (master >= 0.0)
+            arps[index].engine.setSamplesUntilNextNote (master);
     }
 }
 
-void TeArAudioProcessor::setArpeggiatorPattern(int index, const juce::String& pattern)
+bool TeArAudioProcessor::isArpeggiatorOn (int index) const
 {
-    if (juce::isPositiveAndBelow(index, arpeggiatorPatterns.size()))
-    {
-        arpeggiatorPatterns.set(index, pattern);
-        arpeggiators.getReference(index).setPattern(pattern);
-
-        // If the pattern of an arp changed and the DAW is not playing, sync it to another running arp.
-        // This ensures that when playback is stopped, all arps remain rhythmically aligned.
-        if (!wasPlaying && arpeggiatorOnStates[index])
-        {
-            double masterSamplesUntilNext = -1.0;
-            // Find a running arpeggiator to use as the master clock
-            for (int i = 0; i < arpeggiators.size(); ++i)
-            {
-                if (i != index && arpeggiatorOnStates[i])
-                {
-                    masterSamplesUntilNext = arpeggiators[i].getSamplesUntilNextNote();
-                    break;
-                }
-            }
-
-            // If we found a master, sync the arpeggiator whose pattern just changed.
-            if (masterSamplesUntilNext >= 0.0)
-                arpeggiators.getReference(index).setSamplesUntilNextNote(masterSamplesUntilNext);
-        }
-
-        // Notify the editor that the pattern has changed so it can update the text box.
-        sendChangeMessage();
-    }
-}
-
-const juce::String& TeArAudioProcessor::getArpeggiatorPattern(int index) const
-{
-    if (juce::isPositiveAndBelow(index, arpeggiatorPatterns.size()))
-        return arpeggiatorPatterns.getReference(index);
-    
-    static const juce::String emptyString;
-    return emptyString;
-}
-
-void TeArAudioProcessor::randomizeArpeggiator(int index)
-{
-    if (juce::isPositiveAndBelow(index, arpeggiators.size()))
-    {
-        arpeggiators.getReference(index).randomize();
-        // Update the stored pattern string to match the new random pattern
-        arpeggiatorPatterns.set(index, arpeggiators.getReference(index).getPattern());
-        sendChangeMessage(); // Notify the editor to update the text box
-    }
-}
-
-bool TeArAudioProcessor::isArpeggiatorOn(int index) const
-{
-    if (juce::isPositiveAndBelow(index, arpeggiatorOnStates.size()))
-        return arpeggiatorOnStates[index];
+    juce::ScopedLock lock (arpsLock);
+    if (juce::isPositiveAndBelow (index, (int) arps.size()))
+        return arps[index].onState;
     return false;
 }
-int TeArAudioProcessor::getArpeggiatorCurrentStep(int index) const
+
+void TeArAudioProcessor::setArpeggiatorMidiChannel (int index, int channel)
 {
-    if (juce::isPositiveAndBelow(index, arpeggiators.size()))
-        return arpeggiators.getUnchecked(index).getCurrentStepIndex();
+    juce::ScopedLock lock (arpsLock);
+    if (juce::isPositiveAndBelow (index, (int) arps.size()))
+        arps[index].midiChannel = juce::jlimit (1, 16, channel);
+}
+
+int TeArAudioProcessor::getArpeggiatorMidiChannel (int index) const
+{
+    juce::ScopedLock lock (arpsLock);
+    if (juce::isPositiveAndBelow (index, (int) arps.size()))
+        return arps[index].midiChannel;
+    return 1;
+}
+
+void TeArAudioProcessor::setArpeggiatorSubdivision (int index, int subdivIndex)
+{
+    juce::ScopedLock lock (arpsLock);
+    if (juce::isPositiveAndBelow (index, (int) arps.size()))
+    {
+        arps[index].subdivision = subdivIndex;
+        arps[index].engine.setSubdivision (subdivIndex);
+    }
+}
+
+int TeArAudioProcessor::getArpeggiatorSubdivision (int index) const
+{
+    juce::ScopedLock lock (arpsLock);
+    if (juce::isPositiveAndBelow (index, (int) arps.size()))
+        return arps[index].subdivision;
+    return 4;
+}
+
+int TeArAudioProcessor::getArpeggiatorCurrentStep (int index) const
+{
+    // No lock: acceptable minor race for visual feedback only
+    if (juce::isPositiveAndBelow (index, (int) arps.size()))
+        return arps[index].engine.getCurrentStepIndex();
     return 0;
 }
 
-const Arpeggiator& TeArAudioProcessor::getArpeggiator(int index) const
+const Arpeggiator& TeArAudioProcessor::getArpeggiator (int index) const
 {
-    return arpeggiators.getReference(index);
+    // No lock: acceptable minor race for visual feedback only
+    return arps[index].engine;
 }
 
 bool TeArAudioProcessor::areNotesHeld() const
@@ -493,68 +508,17 @@ bool TeArAudioProcessor::areNotesHeld() const
     return !heldNotes.isEmpty();
 }
 
+//==============================================================================
 void TeArAudioProcessor::parameterChanged (const juce::String& parameterID, float newValue)
 {
-    if (parameterID.startsWith("arpOn"))
+    if (parameterID == "chordMethod")
     {
-        int arpIndex = parameterID.getLastCharacter() - '1';
-        if (juce::isPositiveAndBelow(arpIndex, arpeggiatorOnStates.size()))
+        juce::ScopedLock lock (arpsLock);
+        for (auto& arp : arps)
         {
-            arpeggiatorOnStates.set(arpIndex, newValue > 0.5f);
-
-            // If we just turned an arp ON and the DAW is not playing, sync it to another running arp.
-            if (newValue > 0.5f && !wasPlaying)
-            {
-                double masterSamplesUntilNext = -1.0;
-                // Find a running arpeggiator to use as the master clock
-                for (int i = 0; i < arpeggiators.size(); ++i)
-                {
-                    if (i != arpIndex && arpeggiatorOnStates[i])
-                    {
-                        masterSamplesUntilNext = arpeggiators[i].getSamplesUntilNextNote();
-                        break;
-                    }
-                }
-
-                // If we found a master, sync the newly enabled arpeggiator to it.
-                if (masterSamplesUntilNext >= 0.0)
-                    arpeggiators.getReference(arpIndex).setSamplesUntilNextNote(masterSamplesUntilNext);
-            }
+            arp.engine.setChordMethod ((int) newValue);
+            arp.engine.reset();
         }
-    }
-    if (parameterID.startsWith("midiChannel"))
-    {
-        int arpIndex = parameterID.getLastCharacter() - '1';
-        if (juce::isPositiveAndBelow(arpIndex, arpeggiatorMidiChannels.size()))
-        {
-            arpeggiatorMidiChannels.set(arpIndex, static_cast<int>(newValue));
-        }
-    }
-    if (parameterID.startsWith("subdivision"))
-    {
-        int arpIndex = parameterID.getLastCharacter() - '1';
-        if (juce::isPositiveAndBelow(arpIndex, arpeggiators.size()))
-        {
-            arpeggiators.getReference(arpIndex).setSubdivision(static_cast<int>(newValue));
-        }
-    }
-    else if (parameterID == "chordMethod")
-    {
-        for (int i = 0; i < arpeggiators.size(); ++i)
-        {
-            auto& arp = arpeggiators.getReference(i);
-            arp.setChordMethod(static_cast<int>(newValue)); // TODO: This should probably be passed to reset
-            arp.reset();
-        }
-    }
-    else if (parameterID == "scaleRoot")
-    {
-    }
-    else if (parameterID == "scaleType")
-    {
-    }
-    else if (parameterID == "followMidiIn")
-    {
     }
 }
 
@@ -562,68 +526,24 @@ juce::AudioProcessorValueTreeState::ParameterLayout TeArAudioProcessor::createPa
 {
     juce::AudioProcessorValueTreeState::ParameterLayout layout;
 
-    juce::StringArray chordMethods = { "Notes played", "Chord played as is", "Single note" };
-    layout.add(std::make_unique<juce::AudioParameterChoice>(
-        "chordMethod",
-        "Chord Method",
-        chordMethods,
-        1)); // Default to "Chord played as is"
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        "chordMethod", "Chord Method",
+        juce::StringArray { "Notes played", "Chord played as is", "Single note" }, 1));
 
-    for (int i = 0; i < 4; ++i)
-    {
-        layout.add(std::make_unique<juce::AudioParameterBool>(
-            "arpOn" + juce::String(i + 1),
-            "Arpeggiator " + juce::String(i + 1) + " On/Off",
-            true // Default to ON
-        ));
-    }
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        "scaleRoot", "Scale Root",
+        juce::StringArray { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }, 0));
 
-    for (int i = 0; i < 4; ++i)
-    {
-        layout.add(std::make_unique<juce::AudioParameterInt>(
-            "midiChannel" + juce::String(i + 1),
-            "MIDI Channel " + juce::String(i + 1),
-            1, 16, i + 1 // min, max, default (1, 2, 3, 4)
-        ));
-    }
+    layout.add (std::make_unique<juce::AudioParameterChoice> (
+        "scaleType", "Scale Type", MidiTools::Scale::getScaleTypeNames(), 0));
 
-    for (int i = 0; i < 4; ++i)
-    {
-        juce::StringArray subdivisions = { "1/4", "1/4T", "1/8", "1/8T", "1/16", "1/16T", "1/32", "1/32T", "1/64", "1/64T" };
-        layout.add(std::make_unique<juce::AudioParameterChoice>(
-            "subdivision" + juce::String(i + 1),
-            "Subdivision " + juce::String(i + 1),
-            subdivisions,
-            4 // Default to 1/16
-        ));
-    }
-
-    juce::StringArray scaleRoots = { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
-    layout.add(std::make_unique<juce::AudioParameterChoice>(
-        "scaleRoot",
-        "Scale Root",
-        scaleRoots,
-        0 // Default to C
-    ));
-
-    layout.add(std::make_unique<juce::AudioParameterChoice>(
-        "scaleType",
-        "Scale Type",
-        MidiTools::Scale::getScaleTypeNames(),
-        0 // Default to Major
-    ));
-
-    layout.add(std::make_unique<juce::AudioParameterBool>(
-        "followMidiIn",
-        "Follow MIDI In",
-        false // Default to false
-    ));
+    layout.add (std::make_unique<juce::AudioParameterBool> (
+        "followMidiIn", "Follow MIDI In", false));
 
     return layout;
 }
 
 //==============================================================================
-// This creates new instances of the plugin..
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new TeArAudioProcessor();

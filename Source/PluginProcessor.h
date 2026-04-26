@@ -1,29 +1,16 @@
-/*
-  ==============================================================================
-
-    This file contains the basic framework code for a JUCE plugin processor.
-
-  ==============================================================================
-*/
-
 #pragma once
 
 #include <JuceHeader.h>
-#include "libs/cppMusicTools/Arpeggiator.h"
+#include "ArpInstance.h"
 
-//==============================================================================
-/**
-*/
-class TeArAudioProcessor  : public juce::AudioProcessor
-                          , public juce::ChangeBroadcaster
-                          , public juce::AudioProcessorValueTreeState::Listener
+class TeArAudioProcessor : public juce::AudioProcessor
+                         , public juce::ChangeBroadcaster
+                         , public juce::AudioProcessorValueTreeState::Listener
 {
 public:
-    //==============================================================================
     TeArAudioProcessor();
     ~TeArAudioProcessor() override;
 
-    //==============================================================================
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
 
@@ -33,62 +20,66 @@ public:
 
     void processBlock (juce::AudioBuffer<float>&, juce::MidiBuffer&) override;
 
-    //==============================================================================
     juce::AudioProcessorEditor* createEditor() override;
     bool hasEditor() const override;
 
-    //==============================================================================
     const juce::String getName() const override;
-
     bool acceptsMidi() const override;
     bool producesMidi() const override;
     bool isMidiEffect() const override;
     double getTailLengthSeconds() const override;
 
-    //==============================================================================
     int getNumPrograms() override;
     int getCurrentProgram() override;
     void setCurrentProgram (int index) override;
     const juce::String getProgramName (int index) override;
     void changeProgramName (int index, const juce::String& newName) override;
 
-    //==============================================================================
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
-    void parameterChanged(const juce::String& parameterID, float newValue) override;
+    void parameterChanged (const juce::String& parameterID, float newValue) override;
 
-    // Getter and Setter for our custom string parameter
+    // --- Arpeggiator management (UI thread) ---
+    int  getNumArpeggiators() const;
+    void addArpeggiator();
+    void removeArpeggiator (int index);
+
+    // --- Per-arp accessors ---
     void setArpeggiatorPattern (int index, const juce::String& pattern);
-    const juce::String& getArpeggiatorPattern(int index) const;
-    void randomizeArpeggiator(int index);
-    bool isArpeggiatorOn(int index) const;
+    const juce::String& getArpeggiatorPattern (int index) const;
+    void randomizeArpeggiator (int index);
 
-    // Getter for the UI to know the current step
-    int getArpeggiatorCurrentStep(int index) const;
+    void setArpeggiatorOn (int index, bool on);
+    bool isArpeggiatorOn (int index) const;
 
-    // Getter for the UI to access arpeggiator methods
-    const Arpeggiator& getArpeggiator(int index) const;
+    void setArpeggiatorMidiChannel (int index, int channel);
+    int  getArpeggiatorMidiChannel (int index) const;
 
-    // Getter for the UI to know if notes are being held
-    bool areNotesHeld() const;
+    void setArpeggiatorSubdivision (int index, int subdivIndex);
+    int  getArpeggiatorSubdivision (int index) const;
+
+    // --- UI helpers (read-only, called from message thread) ---
+    int              getArpeggiatorCurrentStep (int index) const;
+    const Arpeggiator& getArpeggiator (int index) const;
+    bool             areNotesHeld() const;
 
     juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
 
 private:
-    juce::StringArray arpeggiatorPatterns;
+    mutable juce::CriticalSection arpsLock;
+    std::vector<ArpInstance>      arps;
 
     juce::AudioProcessorValueTreeState apvts;
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
 
+    double sampleRate   = 0.0;
     double lastKnownBPM = 120.0;
-    bool wasPlaying = false;
-    juce::Array<bool> arpeggiatorOnStates;
-    juce::Array<int> arpeggiatorMidiChannels;
-    
-    juce::Array<Arpeggiator> arpeggiators;
+    bool   wasPlaying   = false;
+
     juce::Array<int> heldNotes;
 
-    //==============================================================================
+    void applyChordToAllArps (const MidiTools::Chord& chord);
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TeArAudioProcessor)
 };

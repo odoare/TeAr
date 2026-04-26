@@ -1,0 +1,62 @@
+#pragma once
+#include <JuceHeader.h>
+#include "ArpLookAndFeel.h"
+
+class ArpeggiatorComponent : public juce::Component
+{
+public:
+    // TextEditor that grabs focus on click and handles Return / Shift+Return
+    class ArpTextEditor : public juce::TextEditor
+    {
+    public:
+        std::function<void()> onReturnKey;
+
+        void mouseDown (const juce::MouseEvent& event) override
+        {
+            grabKeyboardFocus();
+            juce::TextEditor::mouseDown (event);
+        }
+
+        bool keyPressed (const juce::KeyPress& key) override
+        {
+            if (key.getKeyCode() == juce::KeyPress::returnKey)
+            {
+                if (key.getModifiers().isShiftDown())
+                    insertTextAtCaret ("\n");
+                else if (onReturnKey)
+                    onReturnKey();
+                return true;
+            }
+            return juce::TextEditor::keyPressed (key);
+        }
+    };
+
+    ArpeggiatorComponent();
+    ~ArpeggiatorComponent() override;
+
+    void setArpColour (juce::Colour c);
+    void setText (const juce::String& text, bool sendNotification);
+    juce::String getText() const;
+    void setSubdivisionIndex (int index);
+    int  getSubdivisionIndex() const;
+    void setMidiChannel (int channel);
+    int  getMidiChannel() const;
+    void setHighlightedRegion (juce::Range<int> range);
+    bool editorHasKeyboardFocus() const;
+
+    std::function<void (const juce::String&)> onPatternChanged;
+    std::function<void (int)>                 onSubdivisionChanged;
+    std::function<void (int)>                 onMidiChannelChanged;
+
+    void resized() override;
+
+private:
+    ArpLookAndFeel laf;
+    ArpTextEditor  textEditor;
+    juce::ComboBox subdivisionBox;
+    juce::Label    midiChannelLabel;
+    juce::ComboBox midiChannelBox;
+    juce::Colour   colour { juce::Colours::white };
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ArpeggiatorComponent)
+};
