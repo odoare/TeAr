@@ -2,8 +2,15 @@
 # Ignore the auto-generated JuceLibraryCode directory
 /JuceLibraryCode/
 
+# CMake build output
+/build/
+
 # Ignore all build folders
 /Builds/
+
+# Packaging artefacts
+/packaging/windows/TeAr.vst3
+/packaging/windows/TeAr-Windows-Setup.exe
 /Assets/bak/
 /doxygen_docs/
 

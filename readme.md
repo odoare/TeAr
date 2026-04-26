@@ -124,32 +124,60 @@ Velocity is specified with a level from 1-8, which maps to a MIDI velocity from 
 
 ---
 
+## Installation
+
+Pre-built binaries are available on the [Releases page](https://github.com/odoare/TeAr/releases).
+
+### macOS
+
+1. Download `TeAr-macOS.pkg` and run the installer.
+2. Open **System Settings → Privacy & Security** and click **Allow Anyway** for the TeAr component (required because the plugin is not notarized).
+3. Restart your DAW. Logic Pro users may need to trigger a rescan in **Plug-in Manager**.
+
+### Windows
+
+1. Download `TeAr-Windows-Setup.exe` and run it as administrator.
+2. Rescan VST3 plugins in your DAW (in Reaper: **Options → Preferences → Plug-ins → VST → Re-scan**).
+
+### Linux
+
+1. Download `TeAr-VST3-Linux-x86_64.zip` (Intel/AMD) or `TeAr-VST3-Linux-arm64.zip` (ARM).
+2. Unzip and copy the `TeAr.vst3` directory to `~/.vst3/`.
+3. Rescan VST3 plugins in your DAW (in Reaper: **Options → Preferences → Plug-ins → VST → Re-scan**).
+
+---
+
 ## Building from Source
 
-This project is built using the JUCE framework and requires the Projucer to generate the necessary project files for your IDE.
+This project uses CMake. JUCE and the FxmeJuceTools module are expected as sibling directories.
 
 1.  **Clone the Repository**
 
-    Clone the repository using the `--recursive` flag to ensure that the `cppMusicTools` submodule is also downloaded:
-
     ```bash
-    git clone --recursive https://github.com/your-username/TeAr.git
+    git clone --recursive https://github.com/odoare/TeAr.git
+    cd TeAr
     ```
 
-    If you have already cloned the project without the submodules, you can initialize them with:
+2.  **Set up dependencies** (one-time, in the parent directory)
+
     ```bash
-    git submodule update --init --recursive
+    # JUCE
+    git clone --branch 8.0.12 https://github.com/juce-framework/JUCE.git ../JUCE
+
+    # FxmeJuceTools custom module
+    git clone https://github.com/odoare/FxmeJuceTools.git ../FxmeJuceTools_repo
+    mkdir -p ../JUCE/usermodules
+    ln -s $(pwd)/../FxmeJuceTools_repo/module/FxmeJuceTools ../JUCE/usermodules/FxmeJuceTools
     ```
 
-2.  **Configure with Projucer**
+3.  **Configure and build**
 
-    *   Open the `TeAr.jucer` file located in the project's root directory.
-    *   In the Projucer's global settings (File > Global Paths...), make sure the "Path to JUCE" is set to the location of your JUCE modules.
-    *   Click "Save Project" or "Save and Open in IDE..." to generate the build files for your system (e.g., a Visual Studio Solution or an Xcode project).
+    ```bash
+    cmake -B build -DCMAKE_BUILD_TYPE=Release
+    cmake --build build --config Release --parallel
+    ```
 
-3.  **Compile**
-
-    Open the generated project in your IDE (Visual Studio, Xcode, etc.) and build the "TeAr" target.
+    The built plugin will be in `build/TeAr_artefacts/Release/`.
 
 ---
 

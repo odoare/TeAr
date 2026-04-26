@@ -1,0 +1,251 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  # ── Linux x86_64 ──────────────────────────────────────────────────────────
+  build-linux-x86_64:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libasound2-dev libx11-dev libxrandr-dev libxinerama-dev \
+            libxcursor-dev libfreetype-dev libfontconfig1-dev libgl1-mesa-dev
+
+      - uses: actions/checkout@v4
+        with:
+          path: TeAr
+          submodules: recursive
+
+      - uses: actions/checkout@v4
+        with:
+          repository: juce-framework/JUCE
+          ref: 8.0.12
+          path: JUCE
+
+      - name: Checkout FxmeJuceTools
+        uses: actions/checkout@v4
+        with:
+          repository: odoare/FxmeJuceTools
+          path: _fxme_tmp
+
+      - name: Install FxmeJuceTools module
+        shell: bash
+        run: |
+          mkdir -p JUCE/usermodules
+          mv _fxme_tmp/module/FxmeJuceTools JUCE/usermodules/FxmeJuceTools
+
+      - name: Configure & Build
+        run: |
+          cmake -B TeAr/build -S TeAr -DCMAKE_BUILD_TYPE=Release
+          cmake --build TeAr/build --config Release --parallel
+
+      - name: Package
+        run: |
+          cd TeAr/build/TeAr_artefacts/Release
+          zip -r ${{ github.workspace }}/TeAr-VST3-Linux-x86_64.zip VST3/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86_64
+          path: TeAr-VST3-Linux-x86_64.zip
+
+  # ── Linux arm64 ───────────────────────────────────────────────────────────
+  build-linux-arm64:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libasound2-dev libx11-dev libxrandr-dev libxinerama-dev \
+            libxcursor-dev libfreetype-dev libfontconfig1-dev libgl1-mesa-dev
+
+      - uses: actions/checkout@v4
+        with:
+          path: TeAr
+          submodules: recursive
+
+      - uses: actions/checkout@v4
+        with:
+          repository: juce-framework/JUCE
+          ref: 8.0.12
+          path: JUCE
+
+      - name: Checkout FxmeJuceTools
+        uses: actions/checkout@v4
+        with:
+          repository: odoare/FxmeJuceTools
+          path: _fxme_tmp
+
+      - name: Install FxmeJuceTools module
+        shell: bash
+        run: |
+          mkdir -p JUCE/usermodules
+          mv _fxme_tmp/module/FxmeJuceTools JUCE/usermodules/FxmeJuceTools
+
+      - name: Configure & Build
+        run: |
+          cmake -B TeAr/build -S TeAr -DCMAKE_BUILD_TYPE=Release
+          cmake --build TeAr/build --config Release --parallel
+
+      - name: Package
+        run: |
+          cd TeAr/build/TeAr_artefacts/Release
+          zip -r ${{ github.workspace }}/TeAr-VST3-Linux-arm64.zip VST3/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-arm64
+          path: TeAr-VST3-Linux-arm64.zip
+
+  # ── Windows x86_64 ────────────────────────────────────────────────────────
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: TeAr
+          submodules: recursive
+
+      - uses: actions/checkout@v4
+        with:
+          repository: juce-framework/JUCE
+          ref: 8.0.12
+          path: JUCE
+
+      - name: Checkout FxmeJuceTools
+        uses: actions/checkout@v4
+        with:
+          repository: odoare/FxmeJuceTools
+          path: _fxme_tmp
+
+      - name: Install FxmeJuceTools module
+        shell: bash
+        run: |
+          mkdir -p JUCE/usermodules
+          mv _fxme_tmp/module/FxmeJuceTools JUCE/usermodules/FxmeJuceTools
+
+      - name: Configure & Build
+        run: |
+          cmake -B TeAr/build -S TeAr -G "Visual Studio 17 2022"
+          cmake --build TeAr/build --config Release --parallel
+
+      - name: Install NSIS
+        run: choco install nsis -y
+
+      - name: Build installer
+        shell: bash
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          cp -r "TeAr/build/TeAr_artefacts/Release/VST3/TeAr.vst3" \
+                "TeAr/packaging/windows/"
+          cd TeAr/packaging/windows
+          "/c/Program Files (x86)/NSIS/makensis.exe" -DVERSION="$VERSION" installer.nsi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: TeAr/packaging/windows/TeAr-Windows-Setup.exe
+
+  # ── macOS universal (arm64 + x86_64) ──────────────────────────────────────
+  build-macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: TeAr
+          submodules: recursive
+
+      - uses: actions/checkout@v4
+        with:
+          repository: juce-framework/JUCE
+          ref: 8.0.12
+          path: JUCE
+
+      - name: Checkout FxmeJuceTools
+        uses: actions/checkout@v4
+        with:
+          repository: odoare/FxmeJuceTools
+          path: _fxme_tmp
+
+      - name: Install FxmeJuceTools module
+        shell: bash
+        run: |
+          mkdir -p JUCE/usermodules
+          mv _fxme_tmp/module/FxmeJuceTools JUCE/usermodules/FxmeJuceTools
+
+      - name: Configure & Build
+        run: |
+          cmake -B TeAr/build -S TeAr -DCMAKE_BUILD_TYPE=Release
+          cmake --build TeAr/build --config Release --parallel
+
+      - name: Verify universal binary
+        run: |
+          lipo -info "TeAr/build/TeAr_artefacts/Release/VST3/TeAr.vst3/Contents/MacOS/TeAr"
+
+      - name: Build pkg installer
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          mkdir -p pkg_root/Library/Audio/Plug-Ins/VST3
+          mkdir -p pkg_root/Library/Audio/Plug-Ins/Components
+          cp -r "TeAr/build/TeAr_artefacts/Release/VST3/TeAr.vst3" \
+                "pkg_root/Library/Audio/Plug-Ins/VST3/"
+          cp -r "TeAr/build/TeAr_artefacts/Release/AU/TeAr.component" \
+                "pkg_root/Library/Audio/Plug-Ins/Components/"
+          pkgbuild \
+            --root pkg_root \
+            --identifier com.fx-mechanics.TeAr \
+            --version "$VERSION" \
+            --install-location / \
+            TeAr-macOS.pkg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-pkg
+          path: TeAr-macOS.pkg
+
+      - name: Package raw zips
+        run: |
+          cd TeAr/build/TeAr_artefacts/Release
+          zip -r ${{ github.workspace }}/TeAr-VST3-macOS-universal.zip VST3/
+          zip -r ${{ github.workspace }}/TeAr-AU-macOS-universal.zip AU/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-vst3
+          path: TeAr-VST3-macOS-universal.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-au
+          path: TeAr-AU-macOS-universal.zip
+
+  # ── Publish GitHub Release ────────────────────────────────────────────────
+  release:
+    needs: [build-linux-x86_64, build-linux-arm64, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artefacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/*.zip
+            artifacts/*.pkg
+            artifacts/*.exe
+          generate_release_notes: true
