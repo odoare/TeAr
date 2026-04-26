@@ -283,9 +283,6 @@ void TeArAudioProcessorEditor::timerCallback()
         updateScaleDisplay();
     }
 
-    // --- Step highlighting for visible arp ---
-    updateTabAppearance();
-
     if (juce::isPositiveAndBelow (selectedArpIndex, (int) arpComponents.size()))
     {
         auto* comp = arpComponents[selectedArpIndex].get();

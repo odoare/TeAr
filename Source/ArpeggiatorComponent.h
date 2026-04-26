@@ -13,8 +13,14 @@ public:
 
         void mouseDown (const juce::MouseEvent& event) override
         {
-            grabKeyboardFocus();
             juce::TextEditor::mouseDown (event);
+            // Post the focus grab asynchronously so X11 processes it after the
+            // current event is fully dispatched rather than during it.
+            juce::Component::SafePointer<juce::Component> safeThis (this);
+            juce::MessageManager::callAsync ([safeThis] {
+                if (safeThis != nullptr && safeThis->isShowing())
+                    safeThis->grabKeyboardFocus();
+            });
         }
 
         bool keyPressed (const juce::KeyPress& key) override
