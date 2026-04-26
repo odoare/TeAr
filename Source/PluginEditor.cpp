@@ -308,6 +308,7 @@ TeArAudioProcessorEditor::~TeArAudioProcessorEditor()
 
 void TeArAudioProcessorEditor::changeListenerCallback (juce::ChangeBroadcaster* source)
 {
+    juce::ignoreUnused(source);
     // When the processor tells us something changed, update our manual controls.
     for (int i = 0; i < arpeggiatorEditors.size(); ++i)
         arpeggiatorEditors[i]->setText(audioProcessor.getArpeggiatorPattern(i), false);

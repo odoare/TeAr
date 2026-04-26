@@ -129,6 +129,7 @@ void TeArAudioProcessor::changeProgramName (int index, const juce::String& newNa
 //==============================================================================
 void TeArAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    juce::ignoreUnused(samplesPerBlock);
     for (int i = 0; i < arpeggiators.size(); ++i)
     {
         arpeggiators.getReference(i).prepareToPlay(sampleRate);
@@ -177,13 +178,15 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     bool transportJustStopped = false;
 
     // --- Get Host Transport Information ---
-    if (auto* playHead = getPlayHead())
+    if (auto* ph = getPlayHead())
     {
         juce::AudioPlayHead::CurrentPositionInfo positionInfo;
-        if (playHead->getCurrentPosition(positionInfo))
+        JUCE_BEGIN_IGNORE_WARNINGS_GCC_LIKE("-Wdeprecated-declarations")
+        if (ph->getCurrentPosition(positionInfo))
+        JUCE_END_IGNORE_WARNINGS_GCC_LIKE
         {
-            // Update tempo if it has changed
-            if (positionInfo.bpm > 0.0 && positionInfo.bpm != lastKnownBPM)
+            // Update tempo whenever host provides a valid value
+            if (positionInfo.bpm > 0.0)
             {
                 lastKnownBPM = positionInfo.bpm;
                 for (auto& arp : arpeggiators) arp.setTempo(lastKnownBPM);
@@ -248,7 +251,7 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
                     auto scaleTypeIndex = static_cast<int>(apvts.getRawParameterValue("scaleType")->load());
                     auto scaleType = static_cast<MidiTools::Scale::Type>(scaleTypeIndex);
 
-                    if (followMidiIn)
+                    if (followMidiIn > 0.5f)
                     {
                         // The incoming note sets the root of the scale.
                         // We update the parameter, which will also update the UI.
