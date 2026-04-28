@@ -3,7 +3,7 @@ A Polyphonic and Polyrhythmic MIDI Arpeggiator
 
 ![TeAr](./doc/TeAr.png)
 
-TeAr is an advanced polyrhythmic and polyphonic MIDI arpeggiator plugin. It features four independent arpeggiator engines, each with its own pattern, subdivision, and MIDI output channel. This allows for the creation of complex, evolving musical phrases and textures.
+TeAr is an advanced polyrhythmic and polyphonic MIDI arpeggiator plugin. It features a variable number of independent arpeggiator engines (add or remove them at any time), each with its own pattern, subdivision, and MIDI output channel. This allows for the creation of complex, evolving musical phrases and textures.
 
 At its core, TeAr is scale-aware. You can select a root note and one of many scale types, and the arpeggiators will intelligently conform to that musical context. A "Follow MIDI In" mode allows the scale's root to be changed dynamically by the notes you play.
 
@@ -13,7 +13,7 @@ Video tutorial: [https://www.youtube.com/watch?v=pWOuQep7nIs](https://www.youtub
 
 ## Key Features
 
-*   **Four Independent Arpeggiator Engines**: Create complex polyrhythms and layered melodic lines.
+*   **Variable Number of Arpeggiator Engines**: Add or remove engines on the fly with the `+` / `-` buttons. Create complex polyrhythms and layered melodic lines.
 *   **Per-Arp Controls**: Each engine has its own On/Off switch, pattern editor, subdivision, and MIDI output channel.
 *   **Powerful Pattern Language**: A rich text-based language for defining arpeggio sequences with modifiers for velocity, octave, and pitch.
 *   **Comprehensive Scale Library**: A wide selection of musical scales and modes to define the harmonic landscape.
@@ -77,6 +77,32 @@ Velocity is specified with a level from 1-8, which maps to a MIDI velocity from 
 | `ON` | **Global**: Sets octave for all subsequent notes (N is 0-7). | `O5` |
 | `O+` | **Global**: Increases the global octave by one. | `O+` |
 | `O-` | **Global**: Decreases the global octave by one. | `O-` |
+
+### Block Commands
+
+Block commands wrap a group of steps to change their evaluation context.
+
+#### Local Modifier Scope `( … )`
+
+Any global modifier (`O+`, `O-`, `V+`, `V-`, etc.) used **inside** parentheses applies only within the block. When the closing `)` is reached the global octave and velocity are restored to the values they had at the opening `(`.
+
+```
+1 2 (O+ 1 2 3) 1 2
+```
+In this example `O+` raises the octave for steps 3–5 only; steps 1, 2, 6, 7 play at the original octave.
+
+Parentheses can be nested.
+
+#### Root-Relative Notes `" … "` *(Scale mode only)*
+
+In **Scale** chord-method mode, notes are normally played relative to the degree of the pressed MIDI note within the selected scale. Steps placed between double-quotes are instead played relative to the **Scale Root** parameter — that is, as if the root note of the scale were pressed regardless of what key is actually held.
+
+```
+1 2 "1 2 3" 4
+```
+Here steps 3–5 are always anchored to the scale root; steps 1, 2, 4 follow the pressed note's degree as usual.
+
+> **Note**: `"` is no longer the "repeat last degree" command. Use `=` for that.
 
 ---
 
