@@ -135,9 +135,9 @@ void KeyboardComponent::paint (juce::Graphics& g)
                 g.fillRoundedRectangle (rect, 2.f);
             }
 
-            // Subtle glossy highlight at the top
-            g.setColour (juce::Colours::white.withAlpha (0.08f));
-            g.fillRoundedRectangle (rect.withHeight (bkH * 0.35f), 2.f);
+            // // Subtle glossy highlight at the top
+            // g.setColour (juce::Colours::white.withAlpha (0.08f));
+            // g.fillRoundedRectangle (rect.withHeight (bkH * 0.35f), 2.f);
 
             // Red outline for pressed MIDI input notes
             if (isInputNote (midiNote))

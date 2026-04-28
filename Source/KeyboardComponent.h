@@ -9,10 +9,10 @@ public:
 
     void paint (juce::Graphics& g) override;
 
-    // scaleNotes  → gray-dimmed fill on non-scale keys
-    // rootNote    → white outline
-    // currentNotes→ arp-colour fill on playing output notes
-    // inputNotes  → red outline on pressed MIDI-input notes
+    // scaleNotes  : gray-dimmed fill on non-scale keys
+    // rootNote    : white outline
+    // currentNotes: arp-colour fill on playing output notes
+    // inputNotes  : red outline on pressed MIDI-input notes
     void updateScale (const juce::Array<int>&      newScaleNotes,
                       int                           newRootNote,
                       const juce::Array<juce::var>& newCurrentNotes,
