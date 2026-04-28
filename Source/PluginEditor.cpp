@@ -57,7 +57,7 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
 
     // --- Global controls ---
     addAndMakeVisible (chordMethodLabel);
-    chordMethodLabel.setText ("Chord Method", juce::dontSendNotification);
+    chordMethodLabel.setText ("Method", juce::dontSendNotification);
     chordMethodLabel.attachToComponent (&chordMethodBox, true);
     chordMethodLabel.setLookAndFeel (&arpLAF);
     chordMethodLabel.setColour (juce::Label::textColourId, neutral);
@@ -121,7 +121,7 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     startTimerHz (60);
     updateScaleDisplay();
 
-    setSize (720, 480);
+    setSize (800, 480);
 }
 
 TeArAudioProcessorEditor::~TeArAudioProcessorEditor()
