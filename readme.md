@@ -93,7 +93,7 @@ In this example `O+` raises the octave for steps 3–5 only; steps 1, 2, 6, 7 pl
 
 Parentheses can be nested.
 
-#### Root-Relative Notes `" … "` *(Scale mode only)*
+#### Root-Relative Notes `" … "` *(Scale mode only = Single note)*
 
 In **Scale** chord-method mode, notes are normally played relative to the degree of the pressed MIDI note within the selected scale. Steps placed between double-quotes are instead played relative to the **Scale Root** parameter — that is, as if the root note of the scale were pressed regardless of what key is actually held.
 
