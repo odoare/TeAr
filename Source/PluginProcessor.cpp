@@ -183,6 +183,8 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
                     auto scaleTypeIndex = (int) apvts.getRawParameterValue ("scaleType")->load();
                     auto scaleType      = static_cast<MidiTools::Scale::Type> (scaleTypeIndex);
 
+                    MidiTools::Chord rootChordForArps ("");
+
                     if (followMidiIn > 0.5f)
                     {
                         apvts.getParameter ("scaleRoot")->setValueNotifyingHost (lastNoteSemitone / 11.0f);
@@ -190,11 +192,16 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
                         for (auto& arp : arps)
                             if (arp.onState) arp.engine.setBaseOctaveFromNote (lastNote);
                         playedChord = MidiTools::Chord::fromScaleAndDegree (currentScale, 0);
+                        // With followMidiIn the pressed note IS the root, so rootChord == playedChord
+                        rootChordForArps = playedChord;
                     }
                     else
                     {
                         auto rootNoteIndex = (int) apvts.getRawParameterValue ("scaleRoot")->load();
                         MidiTools::Scale currentScale (rootNoteIndex, scaleType);
+                        // rootChord is always degree-0 of the fixed scale
+                        rootChordForArps = MidiTools::Chord::fromScaleAndDegree (currentScale, 0);
+
                         const auto& scaleNotes = currentScale.getNotes();
                         int degree = scaleNotes.indexOf (lastNoteSemitone);
 
@@ -219,6 +226,9 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
                                           nearestDegree != -1 ? nearestDegree : 0);
                         }
                     }
+
+                    for (auto& arp : arps)
+                        if (arp.onState) arp.engine.setRootChord (rootChordForArps);
                 }
                 break;
         }
