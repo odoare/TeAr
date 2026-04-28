@@ -43,6 +43,7 @@ target_sources(TeAr PRIVATE
     Source/popupWindow.cpp
     Source/FxmeLogo.cpp
     Source/ScaleComponent.cpp
+    Source/KeyboardComponent.cpp
 )
 
 # Required so that "libs/cppMusicTools/..." includes resolve

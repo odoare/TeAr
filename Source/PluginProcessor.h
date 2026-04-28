@@ -63,6 +63,7 @@ public:
     int              getArpeggiatorCurrentStep (int index) const;
     const Arpeggiator& getArpeggiator (int index) const;
     bool             areNotesHeld() const;
+    juce::Array<int> getHeldNotes() const;
 
     juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
 

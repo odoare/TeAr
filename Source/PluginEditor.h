@@ -4,7 +4,7 @@
 #include "PluginProcessor.h"
 #include "ArpLookAndFeel.h"
 #include "ArpeggiatorComponent.h"
-#include "ScaleComponent.h"
+#include "KeyboardComponent.h"
 #include "FxmeLogo.h"
 #include "popupWindow.h"
 
@@ -58,7 +58,7 @@ private:
     juce::ToggleButton followMidiInButton;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> followMidiInAttachment;
 
-    ScaleComponent         scaleComponent;
+    KeyboardComponent      keyboardComponent;
     MidiTools::Scale       currentDisplayScale { 0, MidiTools::Scale::Type::Major };
     juce::Array<int>       lastStepIndices;
     int                    lastPlayedArpNote { -1 };

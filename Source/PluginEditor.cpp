@@ -113,7 +113,7 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     followMidiInAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
         apvts, "followMidiIn", followMidiInButton);
 
-    addAndMakeVisible (scaleComponent);
+    addAndMakeVisible (keyboardComponent);
     addAndMakeVisible (logo);
 
     rebuildArpUI();
@@ -121,7 +121,7 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     startTimerHz (60);
     updateScaleDisplay();
 
-    setSize (960, 520);
+    setSize (720, 480);
 }
 
 TeArAudioProcessorEditor::~TeArAudioProcessorEditor()
@@ -253,13 +253,16 @@ void TeArAudioProcessorEditor::timerCallback()
     const bool notesAreHeld = audioProcessor.areNotesHeld();
     int numArps = audioProcessor.getNumArpeggiators();
 
-    // --- Scale display ---
+    // --- Scale / keyboard display ---
     if (notesAreHeld && numArps > 0)
     {
         const auto& chord = audioProcessor.getArpeggiator (0).getChord();
         auto chordMethod  = (int) audioProcessor.getAPVTS().getRawParameterValue ("chordMethod")->load();
-        const auto& notes = (chordMethod == 1) ? chord.getRawNotes() : chord.getDegrees();
 
+        // Actual held MIDI notes → red outline (works for all chord methods)
+        juce::Array<int> inputNotes = audioProcessor.getHeldNotes();
+
+        // Playing output notes → arp-colour fill
         juce::Array<juce::var> currentNotes;
         for (int i = 0; i < numArps; ++i)
         {
@@ -275,8 +278,14 @@ void TeArAudioProcessorEditor::timerCallback()
                 }
             }
         }
-        if (!notes.isEmpty())
-            scaleComponent.updateScale (notes, notes.getFirst(), currentNotes);
+
+        // Scale notes → gray dimming of non-scale keys (scale mode only)
+        if (chordMethod == 2)
+            keyboardComponent.updateScale (currentDisplayScale.getNotes(),
+                                           currentDisplayScale.getRootNote(),
+                                           currentNotes, inputNotes);
+        else
+            keyboardComponent.updateScale ({}, -1, currentNotes, inputNotes);
     }
     else
     {
@@ -323,11 +332,11 @@ void TeArAudioProcessorEditor::updateScaleDisplay()
         auto scaleType = static_cast<MidiTools::Scale::Type> (
             (int) apvts.getRawParameterValue ("scaleType")->load());
         currentDisplayScale = MidiTools::Scale (scaleRoot, scaleType);
-        scaleComponent.updateScale (currentDisplayScale.getNotes(), currentDisplayScale.getRootNote(), {});
+        keyboardComponent.updateScale (currentDisplayScale.getNotes(), currentDisplayScale.getRootNote(), {});
     }
     else
     {
-        scaleComponent.updateScale ({}, -1, {});
+        keyboardComponent.updateScale ({}, -1, {});
     }
 
     lastPlayedArpNote = -1;
@@ -369,7 +378,7 @@ void TeArAudioProcessorEditor::resized()
 
     // --- Scale component ---
     bounds.removeFromTop (5);
-    scaleComponent.setBounds (bounds.removeFromTop (60));
+    keyboardComponent.setBounds (bounds.removeFromTop (60));
 
     // --- Tab bar ---
     bounds.removeFromTop (5);

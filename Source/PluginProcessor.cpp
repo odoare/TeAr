@@ -508,6 +508,12 @@ bool TeArAudioProcessor::areNotesHeld() const
     return !heldNotes.isEmpty();
 }
 
+juce::Array<int> TeArAudioProcessor::getHeldNotes() const
+{
+    juce::ScopedLock lock (arpsLock);
+    return heldNotes;
+}
+
 //==============================================================================
 void TeArAudioProcessor::parameterChanged (const juce::String& parameterID, float newValue)
 {
