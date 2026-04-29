@@ -95,14 +95,14 @@ Parentheses can be nested.
 
 #### Root-Relative Notes `" … "` *(Scale mode only = Single note)*
 
-In **Scale** chord-method mode, notes are normally played relative to the degree of the pressed MIDI note within the selected scale. Steps placed between double-quotes are instead played relative to the **Scale Root** parameter — that is, as if the root note of the scale were pressed regardless of what key is actually held.
+In **Scale** chord-method mode (single-note mode in the GUI), notes are normally played relative to the degree of the pressed MIDI note within the selected scale. Steps placed between double-quotes are instead played relative to the **Scale Root** parameter - that is, as if the root note of the scale were pressed regardless of what key is actually held.
 
 ```
 1 2 "1 2 3" 4
 ```
-Here steps 3–5 are always anchored to the scale root; steps 1, 2, 4 follow the pressed note's degree as usual.
+Here steps 3–5 are always anchored to the scale root while steps 1, 2, 4 follow the pressed note's degree as usual.
 
-> **Note**: `"` is no longer the "repeat last degree" command. Use `=` for that.
+> **Note**: In versions up to 0.2, `"` was used to "repeat last degree" command. The dedicated command for that is now  `=`.
 
 ---
 

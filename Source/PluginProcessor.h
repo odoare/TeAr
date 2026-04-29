@@ -67,6 +67,8 @@ public:
 
     juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
 
+    static constexpr int MAX_ARPS = 16;
+
 private:
     mutable juce::CriticalSection arpsLock;
     std::vector<ArpInstance>      arps;

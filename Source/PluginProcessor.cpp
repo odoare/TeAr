@@ -24,6 +24,8 @@ TeArAudioProcessor::TeArAudioProcessor()
     }
 
     apvts.addParameterListener ("chordMethod", this);
+    for (int i = 0; i < MAX_ARPS; ++i)
+        apvts.addParameterListener ("arp" + juce::String (i) + "On", this);
 
     int chordMethod = (int) apvts.getRawParameterValue ("chordMethod")->load();
     for (auto& arp : arps)
@@ -33,6 +35,8 @@ TeArAudioProcessor::TeArAudioProcessor()
 TeArAudioProcessor::~TeArAudioProcessor()
 {
     apvts.removeParameterListener ("chordMethod", this);
+    for (int i = 0; i < MAX_ARPS; ++i)
+        apvts.removeParameterListener ("arp" + juce::String (i) + "On", this);
 }
 
 //==============================================================================
@@ -376,8 +380,12 @@ void TeArAudioProcessor::addArpeggiator()
 {
     {
         juce::ScopedLock lock (arpsLock);
+        int newIdx = (int) arps.size();
         ArpInstance arp;
-        arp.midiChannel = juce::jmin ((int) arps.size() + 1, 16);
+        arp.midiChannel = juce::jmin (newIdx + 1, 16);
+        if (juce::isPositiveAndBelow (newIdx, MAX_ARPS))
+            if (auto* val = apvts.getRawParameterValue ("arp" + juce::String (newIdx) + "On"))
+                arp.onState = (*val > 0.5f);
         arp.engine.prepareToPlay (sampleRate);
         arp.engine.setSubdivision (arp.subdivision);
         arp.engine.setTempo       (lastKnownBPM);
@@ -444,18 +452,10 @@ void TeArAudioProcessor::randomizeArpeggiator (int index)
 
 void TeArAudioProcessor::setArpeggiatorOn (int index, bool on)
 {
-    juce::ScopedLock lock (arpsLock);
-    if (!juce::isPositiveAndBelow (index, (int) arps.size())) return;
-    arps[index].onState = on;
-
-    if (on && !wasPlaying)
-    {
-        double master = -1.0;
-        for (int i = 0; i < (int) arps.size(); ++i)
-            if (i != index && arps[i].onState) { master = arps[i].engine.getSamplesUntilNextNote(); break; }
-        if (master >= 0.0)
-            arps[index].engine.setSamplesUntilNextNote (master);
-    }
+    if (!juce::isPositiveAndBelow (index, MAX_ARPS)) return;
+    if (auto* p = dynamic_cast<juce::AudioParameterBool*> (
+            apvts.getParameter ("arp" + juce::String (index) + "On")))
+        p->setValueNotifyingHost (on ? 1.0f : 0.0f);
 }
 
 bool TeArAudioProcessor::isArpeggiatorOn (int index) const
@@ -535,6 +535,30 @@ void TeArAudioProcessor::parameterChanged (const juce::String& parameterID, floa
             arp.engine.setChordMethod ((int) newValue);
             arp.engine.reset();
         }
+        return;
+    }
+
+    for (int i = 0; i < MAX_ARPS; ++i)
+    {
+        if (parameterID == "arp" + juce::String (i) + "On")
+        {
+            {
+                juce::ScopedLock lock (arpsLock);
+                if (!juce::isPositiveAndBelow (i, (int) arps.size())) return;
+                bool on = (newValue > 0.5f);
+                arps[i].onState = on;
+                if (on && !wasPlaying)
+                {
+                    double master = -1.0;
+                    for (int j = 0; j < (int) arps.size(); ++j)
+                        if (j != i && arps[j].onState) { master = arps[j].engine.getSamplesUntilNextNote(); break; }
+                    if (master >= 0.0)
+                        arps[i].engine.setSamplesUntilNextNote (master);
+                }
+            }
+            sendChangeMessage();
+            return;
+        }
     }
 }
 
@@ -555,6 +579,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout TeArAudioProcessor::createPa
 
     layout.add (std::make_unique<juce::AudioParameterBool> (
         "followMidiIn", "Follow MIDI In", false));
+
+    for (int i = 0; i < MAX_ARPS; ++i)
+        layout.add (std::make_unique<juce::AudioParameterBool> (
+            "arp" + juce::String (i) + "On",
+            "Arp " + juce::String (i + 1) + " On",
+            true));
 
     return layout;
 }
