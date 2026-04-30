@@ -306,64 +306,79 @@ void TeArAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
     if (xmlState->hasTagName (apvts.state.getType()))
         apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
 
-    juce::ScopedLock lock (arpsLock);
+    std::vector<bool> loadedOnStates;
 
-    if (auto* arpsXml = xmlState->getChildByName ("Arpeggiators"))
     {
-        // --- New format ---
-        arps.clear();
-        int count = arpsXml->getIntAttribute ("count", 1);
-        count = juce::jlimit (1, 64, count);
+        juce::ScopedLock lock (arpsLock);
 
-        for (auto* arpXml : arpsXml->getChildIterator())
+        if (auto* arpsXml = xmlState->getChildByName ("Arpeggiators"))
         {
-            if (!arpXml->hasTagName ("Arp")) continue;
-            ArpInstance arp;
-            arp.pattern     = arpXml->getStringAttribute ("pattern", "1 2 3");
-            arp.onState     = arpXml->getIntAttribute    ("on",          1) != 0;
-            arp.midiChannel = arpXml->getIntAttribute    ("midiChannel", 1);
-            arp.subdivision = arpXml->getIntAttribute    ("subdivision", 4);
+            // --- New format ---
+            arps.clear();
+            int count = arpsXml->getIntAttribute ("count", 1);
+            count = juce::jlimit (1, 64, count);
 
-            arp.engine.prepareToPlay (sampleRate);
-            arp.engine.setPattern    (arp.pattern);
-            arp.engine.setSubdivision(arp.subdivision);
-            arp.engine.setTempo      (lastKnownBPM);
-            arp.engine.setChordMethod((int) apvts.getRawParameterValue ("chordMethod")->load());
-            arps.push_back (std::move (arp));
+            for (auto* arpXml : arpsXml->getChildIterator())
+            {
+                if (!arpXml->hasTagName ("Arp")) continue;
+                ArpInstance arp;
+                arp.pattern     = arpXml->getStringAttribute ("pattern", "1 2 3");
+                arp.onState     = arpXml->getIntAttribute    ("on",          1) != 0;
+                arp.midiChannel = arpXml->getIntAttribute    ("midiChannel", 1);
+                arp.subdivision = arpXml->getIntAttribute    ("subdivision", 4);
+
+                arp.engine.prepareToPlay (sampleRate);
+                arp.engine.setPattern    (arp.pattern);
+                arp.engine.setSubdivision(arp.subdivision);
+                arp.engine.setTempo      (lastKnownBPM);
+                arp.engine.setChordMethod((int) apvts.getRawParameterValue ("chordMethod")->load());
+                arps.push_back (std::move (arp));
+            }
+
+            // Safety: ensure at least one arp
+            if (arps.empty())
+                arps.push_back (ArpInstance{});
+        }
+        else
+        {
+            // --- Legacy format (v1: 4 fixed arps, params stored as APVTS PARAMs + attributes) ---
+            auto getParam = [&] (const juce::String& paramId, float def) -> float
+            {
+                for (auto* child : xmlState->getChildIterator())
+                    if (child->hasTagName ("PARAM") && child->getStringAttribute ("id") == paramId)
+                        return (float) child->getDoubleAttribute ("value", def);
+                return def;
+            };
+
+            arps.clear();
+            for (int i = 0; i < 4; ++i)
+            {
+                ArpInstance arp;
+                arp.pattern     = xmlState->getStringAttribute ("arpeggiatorPattern" + juce::String (i), "1 2 3");
+                arp.onState     = xmlState->getBoolAttribute   ("arpOn"             + juce::String (i), true);
+                arp.midiChannel = (int) getParam ("midiChannel"  + juce::String (i + 1), (float) (i + 1));
+                arp.subdivision = (int) getParam ("subdivision"  + juce::String (i + 1), 4.0f);
+
+                arp.engine.prepareToPlay (sampleRate);
+                arp.engine.setPattern    (arp.pattern);
+                arp.engine.setSubdivision(arp.subdivision);
+                arp.engine.setTempo      (lastKnownBPM);
+                arp.engine.setChordMethod((int) apvts.getRawParameterValue ("chordMethod")->load());
+                arps.push_back (std::move (arp));
+            }
         }
 
-        // Safety: ensure at least one arp
-        if (arps.empty())
-            arps.push_back (ArpInstance{});
+        for (auto& arp : arps)
+            loadedOnStates.push_back (arp.onState);
     }
-    else
-    {
-        // --- Legacy format (v1: 4 fixed arps, params stored as APVTS PARAMs + attributes) ---
-        auto getParam = [&] (const juce::String& paramId, float def) -> float
-        {
-            for (auto* child : xmlState->getChildIterator())
-                if (child->hasTagName ("PARAM") && child->getStringAttribute ("id") == paramId)
-                    return (float) child->getDoubleAttribute ("value", def);
-            return def;
-        };
 
-        arps.clear();
-        for (int i = 0; i < 4; ++i)
-        {
-            ArpInstance arp;
-            arp.pattern     = xmlState->getStringAttribute ("arpeggiatorPattern" + juce::String (i), "1 2 3");
-            arp.onState     = xmlState->getBoolAttribute   ("arpOn"             + juce::String (i), true);
-            arp.midiChannel = (int) getParam ("midiChannel"  + juce::String (i + 1), (float) (i + 1));
-            arp.subdivision = (int) getParam ("subdivision"  + juce::String (i + 1), 4.0f);
-
-            arp.engine.prepareToPlay (sampleRate);
-            arp.engine.setPattern    (arp.pattern);
-            arp.engine.setSubdivision(arp.subdivision);
-            arp.engine.setTempo      (lastKnownBPM);
-            arp.engine.setChordMethod((int) apvts.getRawParameterValue ("chordMethod")->load());
-            arps.push_back (std::move (arp));
-        }
-    }
+    // Sync APVTS bool params to match XML-loaded on/off states. This ensures
+    // the async parameterChanged callbacks that apvts.replaceState() scheduled
+    // will fire with the correct values and not overwrite what we loaded from XML.
+    for (int i = 0; i < (int) loadedOnStates.size() && i < MAX_ARPS; ++i)
+        if (auto* p = dynamic_cast<juce::AudioParameterBool*> (
+                apvts.getParameter ("arp" + juce::String (i) + "On")))
+            p->setValueNotifyingHost (loadedOnStates[i] ? 1.0f : 0.0f);
 
     sendChangeMessage();
 }
