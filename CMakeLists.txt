@@ -81,3 +81,14 @@ target_link_libraries(TeAr
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags
 )
+
+# ---------------------------------------------------------------------------
+# Unit tests for cppMusicTools (opt-in, off by default)
+# Build with: cmake -DTEAR_BUILD_TESTS=ON ...
+# Run with:   Source/libs/cppMusicTools/tests/run_tests.sh
+# ---------------------------------------------------------------------------
+option(TEAR_BUILD_TESTS "Build cppMusicTools unit tests" OFF)
+if(TEAR_BUILD_TESTS)
+    enable_testing()  # must be in the top-level CMakeLists for CTest to discover tests
+    add_subdirectory(Source/libs/cppMusicTools/tests)
+endif()

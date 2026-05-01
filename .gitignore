@@ -8,6 +8,9 @@
 # Ignore all build folders
 /Builds/
 
+# Tests
+/build_tests/
+
 # Packaging artefacts
 /packaging/windows/TeAr.vst3
 /packaging/windows/TeAr-Windows-Setup.exe
