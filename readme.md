@@ -78,6 +78,43 @@ Velocity is specified with a level from 1-8, which maps to a MIDI velocity from 
 | `O+` | **Global**: Increases the global octave by one. | `O+` |
 | `O-` | **Global**: Decreases the global octave by one. | `O-` |
 
+### Probability Modifier
+
+`pN` prefixes a step or a group of steps and plays them only N×10% of the time (N is a digit from 1–9). On a failed roll the step becomes a rest unless a fallback is specified after a `:`.
+
+#### Single-step form
+
+```
+pN X
+pN X:Y
+```
+
+`X` is any note command (digit, `?`, `+`, `-`, `=`, `.`, `_`). On success `X` plays; on failure the step becomes a rest. With the optional `:Y` fallback, `Y` plays on failure instead.
+
+| Example | Behaviour |
+| :--- | :--- |
+| `p5 1` | Plays degree 1 with 50% probability; otherwise rest. |
+| `p3 1:2` | Plays degree 1 with 30% probability; plays degree 2 on failure. |
+| `p7 1:.` | Plays degree 1 with 70% probability; silent rest on failure. |
+| `p5 1:_` | Plays degree 1 with 50% probability; sustains previous note on failure. |
+| `p5 1:?` | Plays degree 1 with 50% probability; plays a **random** chord note on failure. |
+
+#### Group form
+
+```
+pN (success steps):(fallback steps)
+```
+
+`pN` gates an entire parenthesised group. On success, the steps inside `(…)` play; on failure the steps inside the fallback `(…)` play. Either branch can contain any note commands or modifiers. A space between `pN` and `(` is allowed.
+
+| Example | Behaviour |
+| :--- | :--- |
+| `p5 (1 2 3):(4 5)` | Plays degrees 1–3 on success (50%); degrees 4–5 on failure. |
+| `p5 (12):(34)` | Plays degrees 1,2 on success; degrees 3,4 on failure. |
+| `p8 (O+ 1 2 3)` | Plays degrees 1–3 one octave up with 80% probability; rest on failure. |
+
+The fallback `:(…)` is optional; omitting it makes the entire group silent on failure.
+
 ### Block Commands
 
 Block commands wrap a group of steps to change their evaluation context.
