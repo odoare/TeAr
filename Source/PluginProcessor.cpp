@@ -282,7 +282,9 @@ void TeArAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
     auto apvtsState = apvts.copyState();
     std::unique_ptr<juce::XmlElement> xml (apvtsState.createXml());
 
-    // New format: store arps as child element
+    // Remove any stale Arpeggiators node that crept into the APVTS state on a
+    // previous load, then write a fresh one with current data.
+    xml->deleteAllChildElementsWithTagName ("Arpeggiators");
     auto* arpsXml = xml->createNewChildElement ("Arpeggiators");
     arpsXml->setAttribute ("count", (int) arps.size());
     for (int i = 0; i < (int) arps.size(); ++i)
@@ -290,7 +292,10 @@ void TeArAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
         auto* arpXml = arpsXml->createNewChildElement ("Arp");
         arpXml->setAttribute ("index",       i);
         arpXml->setAttribute ("pattern",     arps[i].pattern);
-        arpXml->setAttribute ("on",          arps[i].onState ? 1 : 0);
+        auto* onParam = juce::isPositiveAndBelow (i, MAX_ARPS)
+                            ? apvts.getRawParameterValue ("arp" + juce::String (i) + "On")
+                            : nullptr;
+        arpXml->setAttribute ("on", onParam ? (*onParam > 0.5f ? 1 : 0) : (arps[i].onState ? 1 : 0));
         arpXml->setAttribute ("midiChannel", arps[i].midiChannel);
         arpXml->setAttribute ("subdivision", arps[i].subdivision);
     }
@@ -304,9 +309,11 @@ void TeArAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
     if (xmlState == nullptr) return;
 
     if (xmlState->hasTagName (apvts.state.getType()))
-        apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
-
-    std::vector<bool> loadedOnStates;
+    {
+        auto vt = juce::ValueTree::fromXml (*xmlState);
+        vt.removeChild (vt.getChildWithName ("Arpeggiators"), nullptr);
+        apvts.replaceState (vt);
+    }
 
     {
         juce::ScopedLock lock (arpsLock);
@@ -367,18 +374,7 @@ void TeArAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
                 arps.push_back (std::move (arp));
             }
         }
-
-        for (auto& arp : arps)
-            loadedOnStates.push_back (arp.onState);
     }
-
-    // Sync APVTS bool params to match XML-loaded on/off states. This ensures
-    // the async parameterChanged callbacks that apvts.replaceState() scheduled
-    // will fire with the correct values and not overwrite what we loaded from XML.
-    for (int i = 0; i < (int) loadedOnStates.size() && i < MAX_ARPS; ++i)
-        if (auto* p = dynamic_cast<juce::AudioParameterBool*> (
-                apvts.getParameter ("arp" + juce::String (i) + "On")))
-            p->setValueNotifyingHost (loadedOnStates[i] ? 1.0f : 0.0f);
 
     sendChangeMessage();
 }
