@@ -89,10 +89,27 @@ void TeArAudioProcessor::prepareToPlay (double sr, int samplesPerBlock)
     sampleRate = sr;
 
     juce::ScopedLock lock (arpsLock);
+
+    // Pre-allocate held-notes storage so addIfNotAlreadyThere never reallocates.
+    heldNotes.ensureStorageAllocated (128);
+
+    // Pre-warm scratch chord/scale buffers. We use the largest scale (8-note octatonic)
+    // and the largest possible held-notes count so that the internal juce::Arrays grow to
+    // the maximum capacity we will ever need. Subsequent in-place updates from processBlock
+    // then reuse this storage without allocating.
+    scratchScale.reset (0, MidiTools::Scale::Type::OctatonicHalfWhole);
+    scratchPlayedChord.ensureCapacity (16, 128);
+    scratchRootChord  .ensureCapacity (16, 128);
+    scratchPlayedChord.setFromScaleAndDegree (scratchScale, 0);
+    scratchRootChord  .setFromScaleAndDegree (scratchScale, 0);
+
     for (auto& arp : arps)
     {
         arp.engine.prepareToPlay (sampleRate);
         arp.engine.setPattern (arp.pattern);
+        // Pre-warm each engine's internal chord storage to match the scratch buffers.
+        arp.engine.setChord     (scratchPlayedChord);
+        arp.engine.setRootChord (scratchRootChord);
     }
 }
 
@@ -177,16 +194,16 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
 
     if (notesChanged)
     {
-        MidiTools::Chord playedChord ("");
+        scratchPlayedChord.reset();
         auto chordMethod = (int) apvts.getRawParameterValue ("chordMethod")->load();
 
         switch (chordMethod)
         {
             case 0:
-                playedChord.setDegreesByArray (heldNotes);
+                scratchPlayedChord.setDegreesByArray (heldNotes);
                 break;
             case 1:
-                playedChord.setNotesByArray (heldNotes);
+                scratchPlayedChord.setNotesByArray (heldNotes);
                 break;
             case 2:
                 if (!heldNotes.isEmpty())
@@ -197,34 +214,34 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
                     auto scaleTypeIndex = (int) apvts.getRawParameterValue ("scaleType")->load();
                     auto scaleType      = static_cast<MidiTools::Scale::Type> (scaleTypeIndex);
 
-                    MidiTools::Chord rootChordForArps ("");
+                    scratchRootChord.reset();
 
                     if (followMidiIn > 0.5f)
                     {
                         pendingScaleRootSemitone.store (lastNoteSemitone);
                         triggerAsyncUpdate();
-                        MidiTools::Scale currentScale (lastNoteSemitone, scaleType);
+                        scratchScale.reset (lastNoteSemitone, scaleType);
                         for (auto& arp : arps)
                             if (arp.onState) arp.engine.setBaseOctaveFromNote (lastNote);
-                        playedChord = MidiTools::Chord::fromScaleAndDegree (currentScale, 0);
+                        scratchPlayedChord.setFromScaleAndDegree (scratchScale, 0);
                         // With followMidiIn the pressed note IS the root, so rootChord == playedChord
-                        rootChordForArps = playedChord;
+                        scratchRootChord.setFromScaleAndDegree (scratchScale, 0);
                     }
                     else
                     {
                         auto rootNoteIndex = (int) apvts.getRawParameterValue ("scaleRoot")->load();
-                        MidiTools::Scale currentScale (rootNoteIndex, scaleType);
+                        scratchScale.reset (rootNoteIndex, scaleType);
                         // rootChord is always degree-0 of the fixed scale
-                        rootChordForArps = MidiTools::Chord::fromScaleAndDegree (currentScale, 0);
+                        scratchRootChord.setFromScaleAndDegree (scratchScale, 0);
 
-                        const auto& scaleNotes = currentScale.getNotes();
+                        const auto& scaleNotes = scratchScale.getNotes();
                         int degree = scaleNotes.indexOf (lastNoteSemitone);
 
                         if (degree != -1)
                         {
                             for (auto& arp : arps)
                                 if (arp.onState) arp.engine.setBaseOctaveFromNote (lastNote);
-                            playedChord = MidiTools::Chord::fromScaleAndDegree (currentScale, degree);
+                            scratchPlayedChord.setFromScaleAndDegree (scratchScale, degree);
                         }
                         else
                         {
@@ -237,19 +254,19 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
                             }
                             for (auto& arp : arps)
                                 if (arp.onState) arp.engine.setBaseOctaveFromNote (lastNote);
-                            playedChord = MidiTools::Chord::fromScaleAndDegree (currentScale,
+                            scratchPlayedChord.setFromScaleAndDegree (scratchScale,
                                           nearestDegree != -1 ? nearestDegree : 0);
                         }
                     }
 
                     for (auto& arp : arps)
-                        if (arp.onState) arp.engine.setRootChord (rootChordForArps);
+                        if (arp.onState) arp.engine.setRootChord (scratchRootChord);
                 }
                 break;
         }
 
         for (auto& arp : arps)
-            if (arp.onState) arp.engine.setChord (playedChord);
+            if (arp.onState) arp.engine.setChord (scratchPlayedChord);
     }
 
     midiMessages.clear();
