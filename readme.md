@@ -197,6 +197,22 @@ Pre-built binaries are available on the [Releases page](https://github.com/odoar
 2. Open **System Settings → Privacy & Security** and click **Allow Anyway** for the TeAr component (required because the plugin is not notarized).
 3. Restart your DAW. Logic Pro users may need to trigger a rescan in **Plug-in Manager**.
 
+> **Plugin type and usage in Logic Pro / GarageBand**
+>
+> TeAr is shipped as an **AU instrument** (`aumu`) rather than a MIDI FX (`aumi`), because instrument-with-MIDI-out is the only format that works consistently across every major DAW (Logic, Live, Cubase, Bitwig, Reaper, Studio One, FL Studio). Logic's dedicated MIDI FX slot would be a more natural home for an arpeggiator, but plugins placed there are restricted to AU and unavailable in most other hosts.
+>
+> **Recommended workflow in Logic Pro:**
+>
+> 1. Create a **Software Instrument** track and load **TeAr** on it. (TeAr itself produces no audio — its output is silent.)
+> 2. Create a second Software Instrument track with the synth/sampler you actually want to hear.
+> 3. On the TeAr track, route the MIDI output to the target instrument track using one of:
+>    - **External Instrument** + IAC bus (most reliable), or
+>    - the **MIDI FX → Modifier → Re-route** trick on the destination track,
+>    - or any third-party MIDI routing utility you already use.
+> 4. Set each TeAr engine's MIDI output channel to match what the destination instrument listens on (default: omni / channel 1).
+>
+> The same instrument-with-MIDI-out workflow applies in **Ableton Live**, **Bitwig**, **Cubase**, **Studio One**, **Reaper**, etc. — consult your DAW's documentation for routing MIDI between two instrument tracks.
+
 ### Windows
 
 1. Download `TeAr-Windows-Setup.exe` and run it as administrator.
