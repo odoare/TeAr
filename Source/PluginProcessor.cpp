@@ -81,6 +81,11 @@ void TeArAudioProcessor::changeProgramName (int, const juce::String&)  {}
 void TeArAudioProcessor::prepareToPlay (double sr, int samplesPerBlock)
 {
     juce::ignoreUnused (samplesPerBlock);
+
+    // auval / Logic may call this with zero values during validation.
+    if (sr <= 0 || samplesPerBlock <= 0)
+        return;
+
     sampleRate = sr;
 
     juce::ScopedLock lock (arpsLock);
