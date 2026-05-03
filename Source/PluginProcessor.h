@@ -6,6 +6,7 @@
 class TeArAudioProcessor : public juce::AudioProcessor
                          , public juce::ChangeBroadcaster
                          , public juce::AudioProcessorValueTreeState::Listener
+                         , private juce::AsyncUpdater
 {
 public:
     TeArAudioProcessor();
@@ -39,6 +40,7 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     void parameterChanged (const juce::String& parameterID, float newValue) override;
+    void handleAsyncUpdate() override;
 
     // --- Arpeggiator management (UI thread) ---
     int  getNumArpeggiators() const;
@@ -79,6 +81,9 @@ private:
     double sampleRate   = 0.0;
     double lastKnownBPM = 120.0;
     bool   wasPlaying   = false;
+
+    // Pending scaleRoot update from processBlock; applied on the message thread via AsyncUpdater.
+    std::atomic<int> pendingScaleRootSemitone { -1 };
 
     juce::Array<int> heldNotes;
 

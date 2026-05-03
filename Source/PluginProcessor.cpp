@@ -115,7 +115,12 @@ bool TeArAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) con
 void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
-    juce::ScopedLock lock (arpsLock);
+    juce::ScopedTryLock lock (arpsLock);
+    if (! lock.isLocked())
+    {
+        midiMessages.clear();
+        return;
+    }
 
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
@@ -191,7 +196,8 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
 
                     if (followMidiIn > 0.5f)
                     {
-                        apvts.getParameter ("scaleRoot")->setValueNotifyingHost (lastNoteSemitone / 11.0f);
+                        pendingScaleRootSemitone.store (lastNoteSemitone);
+                        triggerAsyncUpdate();
                         MidiTools::Scale currentScale (lastNoteSemitone, scaleType);
                         for (auto& arp : arps)
                             if (arp.onState) arp.engine.setBaseOctaveFromNote (lastNote);
@@ -377,6 +383,14 @@ void TeArAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
     }
 
     sendChangeMessage();
+}
+
+//==============================================================================
+void TeArAudioProcessor::handleAsyncUpdate()
+{
+    int semitone = pendingScaleRootSemitone.exchange (-1);
+    if (semitone >= 0)
+        apvts.getParameter ("scaleRoot")->setValueNotifyingHost (semitone / 11.0f);
 }
 
 //==============================================================================
