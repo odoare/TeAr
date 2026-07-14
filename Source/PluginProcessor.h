@@ -63,7 +63,7 @@ public:
 
     // --- UI helpers (read-only, called from message thread) ---
     int              getArpeggiatorCurrentStep (int index) const;
-    const Arpeggiator& getArpeggiator (int index) const;
+    const fxme::Arpeggiator& getArpeggiator (int index) const;
     bool             areNotesHeld() const;
     juce::Array<int> getHeldNotes() const;
 
@@ -90,11 +90,11 @@ private:
     // Scratch buffers reused by processBlock to avoid heap allocations on the audio thread.
     // Pre-warmed in prepareToPlay so their internal arrays have allocated capacity for the
     // largest scale/chord we will encounter.
-    MidiTools::Chord scratchPlayedChord { "" };
-    MidiTools::Chord scratchRootChord   { "" };
-    MidiTools::Scale scratchScale       { 0, MidiTools::Scale::Type::Major };
+    fxme::MidiTools::Chord scratchPlayedChord { "" };
+    fxme::MidiTools::Chord scratchRootChord   { "" };
+    fxme::MidiTools::Scale scratchScale       { 0, fxme::MidiTools::Scale::Type::Major };
 
-    void applyChordToAllArps (const MidiTools::Chord& chord);
+    void applyChordToAllArps (const fxme::MidiTools::Chord& chord);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TeArAudioProcessor)
 };

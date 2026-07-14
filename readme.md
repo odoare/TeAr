@@ -215,8 +215,9 @@ Pre-built binaries are available on the [Releases page](https://github.com/odoar
 
 ### Windows
 
-1. Download `TeAr-Windows-Setup.exe` and run it as administrator.
-2. Rescan VST3 plugins in your DAW (in Reaper: **Options → Preferences → Plug-ins → VST → Re-scan**).
+1. Download `TeAr-VST3-Windows-x86_64.zip`.
+2. Unzip and copy the `TeAr.vst3` directory to `C:\Program Files\Common Files\VST3`.
+3. Rescan VST3 plugins in your DAW (in Reaper: **Options → Preferences → Plug-ins → VST → Re-scan**).
 
 ### Linux
 

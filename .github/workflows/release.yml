@@ -136,23 +136,17 @@ jobs:
           cmake -B TeAr/build -S TeAr -G "Visual Studio 17 2022"
           cmake --build TeAr/build --config Release --parallel
 
-      - name: Install NSIS
-        run: choco install nsis -y
-
-      - name: Build installer
-        shell: bash
+      - name: Package raw VST3 zip
+        shell: pwsh
         run: |
-          VERSION="${{ github.ref_name }}"
-          VERSION="${VERSION#v}"
-          cp -r "TeAr/build/TeAr_artefacts/Release/VST3/TeAr.vst3" \
-                "TeAr/packaging/windows/"
-          cd TeAr/packaging/windows
-          "/c/Program Files (x86)/NSIS/makensis.exe" -DVERSION="$VERSION" installer.nsi
+          Compress-Archive `
+            -Path "TeAr/build/TeAr_artefacts/Release/VST3" `
+            -DestinationPath "TeAr-VST3-Windows-x86_64.zip"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: windows-installer
-          path: TeAr/packaging/windows/TeAr-Windows-Setup.exe
+          name: windows-vst3
+          path: TeAr-VST3-Windows-x86_64.zip
 
   # ── macOS universal (arm64 + x86_64) ──────────────────────────────────────
   build-macos:
@@ -233,7 +227,9 @@ jobs:
     needs: [build-linux-x86_64, build-linux-arm64, build-windows, build-macos]
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write      # create the release
+      id-token: write      # OIDC token for provenance signing
+      attestations: write  # record build-provenance attestations
     steps:
       - name: Download all artefacts
         uses: actions/download-artifact@v4
@@ -241,11 +237,17 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: |
+            artifacts/*.zip
+            artifacts/*.pkg
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             artifacts/*.zip
             artifacts/*.pkg
-            artifacts/*.exe
           generate_release_notes: true

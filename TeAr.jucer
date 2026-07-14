@@ -19,8 +19,8 @@
             file="Source/ScaleComponent.cpp"/>
       <FILE id="MGOz4c" name="ScaleComponent.h" compile="0" resource="0"
             file="Source/ScaleComponent.h"/>
-      <FILE id="c0XIdE" name="MidiTools.h" compile="0" resource="0" file="Source/libs/cppMusicTools/MidiTools.h"/>
-      <FILE id="m4bUmK" name="Arpeggiator.h" compile="0" resource="0" file="Source/libs/cppMusicTools/Arpeggiator.h"/>
+      <FILE id="c0XIdE" name="MidiTools.h" compile="0" resource="0" file="Source/libs/FxmeTools/FxmeTools/midi/MidiTools.h"/>
+      <FILE id="m4bUmK" name="Arpeggiator.h" compile="0" resource="0" file="Source/libs/FxmeTools/FxmeTools/midi/Arpeggiator.h"/>
       <FILE id="K03YE8" name="PluginProcessor.cpp" compile="1" resource="0"
             file="Source/PluginProcessor.cpp"/>
       <FILE id="edg028" name="PluginProcessor.h" compile="0" resource="0"

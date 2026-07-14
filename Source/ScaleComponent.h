@@ -11,7 +11,7 @@
 #pragma once
 
 #include <JuceHeader.h>
-#include "libs/cppMusicTools/MidiTools.h"
+#include <FxmeTools/midi/MidiTools.h>
 
 class ScaleComponent : public juce::Component
 {

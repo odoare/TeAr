@@ -1,3 +1,6 @@
 [submodule "Source/libs/cppMusicTools"]
 	path = Source/libs/cppMusicTools
 	url = https://github.com/odoare/cppMusicTools
+[submodule "Source/libs/FxmeTools"]
+	path = Source/libs/FxmeTools
+	url = http://github.com/odoare/FxmeTools

@@ -13,8 +13,9 @@ endif()
 # JUCE is expected as a sibling directory: ../JUCE
 add_subdirectory(../JUCE JUCE)
 
-# Custom module from ../JUCE/usermodules/FxmeJuceTools
-juce_add_module(../JUCE/usermodules/FxmeJuceTools)
+# FX-Mechanics shared tools (JUCE module), vendored as a git submodule.
+# Registers the `FxmeTools` module target.
+include(${CMAKE_CURRENT_SOURCE_DIR}/Source/libs/FxmeTools/cmake/FxmeTools.cmake)
 
 juce_add_plugin(TeAr
     COMPANY_NAME                "FX-Mechanics"
@@ -46,7 +47,6 @@ target_sources(TeAr PRIVATE
     Source/KeyboardComponent.cpp
 )
 
-# Required so that "libs/cppMusicTools/..." includes resolve
 target_include_directories(TeAr PRIVATE Source)
 
 juce_generate_juce_header(TeAr)
@@ -62,7 +62,7 @@ target_compile_definitions(TeAr
 target_link_libraries(TeAr
     PRIVATE
         TeArBinaryData
-        FxmeJuceTools
+        FxmeTools
         juce_audio_basics
         juce_audio_devices
         juce_audio_formats
@@ -83,12 +83,12 @@ target_link_libraries(TeAr
 )
 
 # ---------------------------------------------------------------------------
-# Unit tests for cppMusicTools (opt-in, off by default)
+# Unit tests for the FxmeTools arpeggiator engine (opt-in, off by default)
 # Build with: cmake -DTEAR_BUILD_TESTS=ON ...
-# Run with:   Source/libs/cppMusicTools/tests/run_tests.sh
+# Run with:   Source/libs/FxmeTools/tests/run_tests.sh
 # ---------------------------------------------------------------------------
-option(TEAR_BUILD_TESTS "Build cppMusicTools unit tests" OFF)
+option(TEAR_BUILD_TESTS "Build FxmeTools unit tests" OFF)
 if(TEAR_BUILD_TESTS)
     enable_testing()  # must be in the top-level CMakeLists for CTest to discover tests
-    add_subdirectory(Source/libs/cppMusicTools/tests)
+    add_subdirectory(Source/libs/FxmeTools/tests)
 endif()

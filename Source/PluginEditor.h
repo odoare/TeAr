@@ -59,7 +59,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> followMidiInAttachment;
 
     KeyboardComponent      keyboardComponent;
-    MidiTools::Scale       currentDisplayScale { 0, MidiTools::Scale::Type::Major };
+    fxme::MidiTools::Scale       currentDisplayScale { 0, fxme::MidiTools::Scale::Type::Major };
     juce::Array<int>       lastStepIndices;
     int                    lastPlayedArpNote { -1 };
 

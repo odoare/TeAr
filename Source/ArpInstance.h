@@ -1,6 +1,6 @@
 #pragma once
 #include <JuceHeader.h>
-#include "libs/cppMusicTools/Arpeggiator.h"
+#include <FxmeTools/midi/Arpeggiator.h>
 
 // Color palette — first four match the original hardcoded colors
 inline juce::Colour getArpColour (int index)
@@ -25,7 +25,7 @@ inline juce::Colour getArpColour (int index)
 
 struct ArpInstance
 {
-    Arpeggiator engine;
+    fxme::Arpeggiator engine;
     juce::String pattern    { "1 2 3" };
     bool         onState    { true };
     int          midiChannel{ 1 };

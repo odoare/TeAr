@@ -97,7 +97,7 @@ void TeArAudioProcessor::prepareToPlay (double sr, int samplesPerBlock)
     // and the largest possible held-notes count so that the internal juce::Arrays grow to
     // the maximum capacity we will ever need. Subsequent in-place updates from processBlock
     // then reuse this storage without allocating.
-    scratchScale.reset (0, MidiTools::Scale::Type::OctatonicHalfWhole);
+    scratchScale.reset (0, fxme::MidiTools::Scale::Type::OctatonicHalfWhole);
     scratchPlayedChord.ensureCapacity (16, 128);
     scratchRootChord  .ensureCapacity (16, 128);
     scratchPlayedChord.setFromScaleAndDegree (scratchScale, 0);
@@ -212,7 +212,7 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
                     int lastNoteSemitone = lastNote % 12;
                     auto followMidiIn   = apvts.getRawParameterValue ("followMidiIn")->load();
                     auto scaleTypeIndex = (int) apvts.getRawParameterValue ("scaleType")->load();
-                    auto scaleType      = static_cast<MidiTools::Scale::Type> (scaleTypeIndex);
+                    auto scaleType      = static_cast<fxme::MidiTools::Scale::Type> (scaleTypeIndex);
 
                     scratchRootChord.reset();
 
@@ -554,7 +554,7 @@ int TeArAudioProcessor::getArpeggiatorCurrentStep (int index) const
     return 0;
 }
 
-const Arpeggiator& TeArAudioProcessor::getArpeggiator (int index) const
+const fxme::Arpeggiator& TeArAudioProcessor::getArpeggiator (int index) const
 {
     // No lock: acceptable minor race for visual feedback only
     return arps[index].engine;
@@ -622,7 +622,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout TeArAudioProcessor::createPa
         juce::StringArray { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }, 0));
 
     layout.add (std::make_unique<juce::AudioParameterChoice> (
-        "scaleType", "Scale Type", MidiTools::Scale::getScaleTypeNames(), 0));
+        "scaleType", "Scale Type", fxme::MidiTools::Scale::getScaleTypeNames(), 0));
 
     layout.add (std::make_unique<juce::AudioParameterBool> (
         "followMidiIn", "Follow MIDI In", false));

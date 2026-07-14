@@ -40,10 +40,10 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
         auto colour = getArpColour (selectedArpIndex);
 
         auto makeEuclidian = [&arp] (int hits, int steps, int rotation) {
-            return const_cast<Arpeggiator&> (arp).makeEuclidianPattern (hits, steps, rotation);
+            return const_cast<fxme::Arpeggiator&> (arp).makeEuclidianPattern (hits, steps, rotation);
         };
         auto makeRandom = [&arp] () {
-            return const_cast<Arpeggiator&> (arp).makeRandomPattern();
+            return const_cast<fxme::Arpeggiator&> (arp).makeRandomPattern();
         };
         auto onOk = [this] (juce::String pattern) {
             audioProcessor.setArpeggiatorPattern (selectedArpIndex, pattern);
@@ -329,9 +329,9 @@ void TeArAudioProcessorEditor::updateScaleDisplay()
     if (chordMethod == 2)
     {
         auto scaleRoot = (int) apvts.getRawParameterValue ("scaleRoot")->load();
-        auto scaleType = static_cast<MidiTools::Scale::Type> (
+        auto scaleType = static_cast<fxme::MidiTools::Scale::Type> (
             (int) apvts.getRawParameterValue ("scaleType")->load());
-        currentDisplayScale = MidiTools::Scale (scaleRoot, scaleType);
+        currentDisplayScale = fxme::MidiTools::Scale (scaleRoot, scaleType);
         keyboardComponent.updateScale (currentDisplayScale.getNotes(), currentDisplayScale.getRootNote(), {});
     }
     else
