@@ -109,7 +109,7 @@ jobs:
 
       - name: Configure & Build
         run: |
-          cmake -B TeAr/build -S TeAr -G "Visual Studio 17 2022"
+          cmake -B TeAr/build -S TeAr
           cmake --build TeAr/build --config Release --parallel
 
   # ── macOS universal (arm64 + x86_64) ────────────────────────────────────
