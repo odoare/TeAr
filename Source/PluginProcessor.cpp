@@ -14,6 +14,11 @@ TeArAudioProcessor::TeArAudioProcessor()
                        )
      #endif
     , apvts (*this, nullptr, "Parameters", createParameters())
+    , presetManager (apvts,
+                     fxme::PresetManager::getDefaultUserPresetDirectory ("TeAr"),
+                     BinaryData::namedResourceList,
+                     BinaryData::namedResourceListSize,
+                     BinaryData::getNamedResource)
 {
     // Default: 4 arpeggiators (matches v1 behavior)
     for (int i = 0; i < 4; ++i)
@@ -30,6 +35,21 @@ TeArAudioProcessor::TeArAudioProcessor()
     int chordMethod = (int) apvts.getRawParameterValue ("chordMethod")->load();
     for (auto& arp : arps)
         arp.engine.setChordMethod (chordMethod);
+
+    // A preset only carries apvts.state, so the arpeggiators have to be folded
+    // in on the way out and rebuilt on the way back in.
+    presetManager.onBeforeSave = [this] { storeArpsInState(); };
+    presetManager.onAfterLoad  = [this]
+    {
+        auto tree = apvts.state.getChildWithName ("Arpeggiators");
+        if (tree.isValid())
+            loadArpsFromTree (tree);
+        syncArpOnStatesFromParameters();
+        sendChangeMessage();
+    };
+    // Deliberately not seeding the state here: writing to apvts.state is what
+    // marks a preset dirty, and a freshly opened plugin has not been edited.
+    // getStateInformation() and onBeforeSave both build the tree on demand.
 }
 
 TeArAudioProcessor::~TeArAudioProcessor()
@@ -303,31 +323,129 @@ juce::AudioProcessorEditor* TeArAudioProcessor::createEditor()
 }
 
 //==============================================================================
-void TeArAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+juce::ValueTree TeArAudioProcessor::buildArpsTree() const
 {
     juce::ScopedLock lock (arpsLock);
 
-    auto apvtsState = apvts.copyState();
-    std::unique_ptr<juce::XmlElement> xml (apvtsState.createXml());
+    juce::ValueTree tree ("Arpeggiators");
+    tree.setProperty ("count", (int) arps.size(), nullptr);
 
-    // Remove any stale Arpeggiators node that crept into the APVTS state on a
-    // previous load, then write a fresh one with current data.
-    xml->deleteAllChildElementsWithTagName ("Arpeggiators");
-    auto* arpsXml = xml->createNewChildElement ("Arpeggiators");
-    arpsXml->setAttribute ("count", (int) arps.size());
     for (int i = 0; i < (int) arps.size(); ++i)
     {
-        auto* arpXml = arpsXml->createNewChildElement ("Arp");
-        arpXml->setAttribute ("index",       i);
-        arpXml->setAttribute ("pattern",     arps[i].pattern);
+        juce::ValueTree arpTree ("Arp");
+        arpTree.setProperty ("index",   i,               nullptr);
+        arpTree.setProperty ("pattern", arps[i].pattern, nullptr);
+
+        // The on/off state is an automatable parameter, so the parameter wins
+        // over the cached copy in the instance.
         auto* onParam = juce::isPositiveAndBelow (i, MAX_ARPS)
                             ? apvts.getRawParameterValue ("arp" + juce::String (i) + "On")
                             : nullptr;
-        arpXml->setAttribute ("on", onParam ? (*onParam > 0.5f ? 1 : 0) : (arps[i].onState ? 1 : 0));
-        arpXml->setAttribute ("midiChannel", arps[i].midiChannel);
-        arpXml->setAttribute ("subdivision", arps[i].subdivision);
+        arpTree.setProperty ("on", onParam ? (*onParam > 0.5f ? 1 : 0)
+                                           : (arps[i].onState ? 1 : 0), nullptr);
+        arpTree.setProperty ("midiChannel", arps[i].midiChannel, nullptr);
+        arpTree.setProperty ("subdivision", arps[i].subdivision, nullptr);
+        tree.appendChild (arpTree, nullptr);
     }
 
+    return tree;
+}
+
+void TeArAudioProcessor::storeArpsInState()
+{
+    auto existing = apvts.state.getChildWithName ("Arpeggiators");
+    if (existing.isValid())
+        apvts.state.removeChild (existing, nullptr);
+    apvts.state.appendChild (buildArpsTree(), nullptr);
+}
+
+void TeArAudioProcessor::loadArpsFromTree (const juce::ValueTree& tree)
+{
+    juce::ScopedLock lock (arpsLock);
+
+    arps.clear();
+    const int chordMethod = (int) apvts.getRawParameterValue ("chordMethod")->load();
+
+    for (const auto& arpTree : tree)
+    {
+        if (! arpTree.hasType ("Arp"))
+            continue;
+        if ((int) arps.size() >= MAX_ARPS)
+            break;
+
+        ArpInstance arp;
+        arp.pattern     = arpTree.getProperty ("pattern",     "1 2 3").toString();
+        arp.onState     = (int) arpTree.getProperty ("on",          1) != 0;
+        arp.midiChannel = juce::jlimit (1, 16, (int) arpTree.getProperty ("midiChannel", 1));
+        arp.subdivision = (int) arpTree.getProperty ("subdivision", 4);
+
+        arp.engine.prepareToPlay  (sampleRate);
+        arp.engine.setPattern     (arp.pattern);
+        arp.engine.setSubdivision (arp.subdivision);
+        arp.engine.setTempo       (lastKnownBPM);
+        arp.engine.setChordMethod (chordMethod);
+        arps.push_back (std::move (arp));
+    }
+
+    // Safety: ensure at least one arp
+    if (arps.empty())
+        arps.push_back (ArpInstance{});
+}
+
+void TeArAudioProcessor::syncArpOnStatesFromParameters()
+{
+    juce::ScopedLock lock (arpsLock);
+
+    for (int i = 0; i < (int) arps.size() && i < MAX_ARPS; ++i)
+        if (auto* val = apvts.getRawParameterValue ("arp" + juce::String (i) + "On"))
+            arps[i].onState = (*val > 0.5f);
+}
+
+void TeArAudioProcessor::loadLegacyArps (const juce::XmlElement& xmlState)
+{
+    // v1: 4 fixed arps, params stored as APVTS PARAMs + attributes on the root.
+    auto getParam = [&xmlState] (const juce::String& paramId, float def) -> float
+    {
+        for (auto* child : xmlState.getChildIterator())
+            if (child->hasTagName ("PARAM") && child->getStringAttribute ("id") == paramId)
+                return (float) child->getDoubleAttribute ("value", def);
+        return def;
+    };
+
+    juce::ScopedLock lock (arpsLock);
+
+    arps.clear();
+    for (int i = 0; i < 4; ++i)
+    {
+        ArpInstance arp;
+        arp.pattern     = xmlState.getStringAttribute ("arpeggiatorPattern" + juce::String (i), "1 2 3");
+        arp.onState     = xmlState.getBoolAttribute   ("arpOn"             + juce::String (i), true);
+        arp.midiChannel = (int) getParam ("midiChannel" + juce::String (i + 1), (float) (i + 1));
+        arp.subdivision = (int) getParam ("subdivision" + juce::String (i + 1), 4.0f);
+
+        arp.engine.prepareToPlay  (sampleRate);
+        arp.engine.setPattern     (arp.pattern);
+        arp.engine.setSubdivision (arp.subdivision);
+        arp.engine.setTempo       (lastKnownBPM);
+        arp.engine.setChordMethod ((int) apvts.getRawParameterValue ("chordMethod")->load());
+        arps.push_back (std::move (arp));
+    }
+}
+
+//==============================================================================
+void TeArAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+{
+    // copyState() is a deep copy, so the Arpeggiators child can be refreshed
+    // here without touching the live tree the GUI is reading.
+    auto state = apvts.copyState();
+
+    auto existing = state.getChildWithName ("Arpeggiators");
+    if (existing.isValid())
+        state.removeChild (existing, nullptr);
+    state.appendChild (buildArpsTree(), nullptr);
+
+    std::unique_ptr<juce::XmlElement> xml (state.createXml());
+    xml->setAttribute ("version", 2);
     copyXmlToBinary (*xml, destData);
 }
 
@@ -335,75 +453,17 @@ void TeArAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
     if (xmlState == nullptr) return;
+    if (! xmlState->hasTagName (apvts.state.getType())) return;
 
-    if (xmlState->hasTagName (apvts.state.getType()))
-    {
-        auto vt = juce::ValueTree::fromXml (*xmlState);
-        vt.removeChild (vt.getChildWithName ("Arpeggiators"), nullptr);
-        apvts.replaceState (vt);
-    }
+    apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
 
-    {
-        juce::ScopedLock lock (arpsLock);
+    auto arpsTree = apvts.state.getChildWithName ("Arpeggiators");
+    if (arpsTree.isValid())
+        loadArpsFromTree (arpsTree);
+    else
+        loadLegacyArps (*xmlState);
 
-        if (auto* arpsXml = xmlState->getChildByName ("Arpeggiators"))
-        {
-            // --- New format ---
-            arps.clear();
-            int count = arpsXml->getIntAttribute ("count", 1);
-            count = juce::jlimit (1, 64, count);
-
-            for (auto* arpXml : arpsXml->getChildIterator())
-            {
-                if (!arpXml->hasTagName ("Arp")) continue;
-                ArpInstance arp;
-                arp.pattern     = arpXml->getStringAttribute ("pattern", "1 2 3");
-                arp.onState     = arpXml->getIntAttribute    ("on",          1) != 0;
-                arp.midiChannel = arpXml->getIntAttribute    ("midiChannel", 1);
-                arp.subdivision = arpXml->getIntAttribute    ("subdivision", 4);
-
-                arp.engine.prepareToPlay (sampleRate);
-                arp.engine.setPattern    (arp.pattern);
-                arp.engine.setSubdivision(arp.subdivision);
-                arp.engine.setTempo      (lastKnownBPM);
-                arp.engine.setChordMethod((int) apvts.getRawParameterValue ("chordMethod")->load());
-                arps.push_back (std::move (arp));
-            }
-
-            // Safety: ensure at least one arp
-            if (arps.empty())
-                arps.push_back (ArpInstance{});
-        }
-        else
-        {
-            // --- Legacy format (v1: 4 fixed arps, params stored as APVTS PARAMs + attributes) ---
-            auto getParam = [&] (const juce::String& paramId, float def) -> float
-            {
-                for (auto* child : xmlState->getChildIterator())
-                    if (child->hasTagName ("PARAM") && child->getStringAttribute ("id") == paramId)
-                        return (float) child->getDoubleAttribute ("value", def);
-                return def;
-            };
-
-            arps.clear();
-            for (int i = 0; i < 4; ++i)
-            {
-                ArpInstance arp;
-                arp.pattern     = xmlState->getStringAttribute ("arpeggiatorPattern" + juce::String (i), "1 2 3");
-                arp.onState     = xmlState->getBoolAttribute   ("arpOn"             + juce::String (i), true);
-                arp.midiChannel = (int) getParam ("midiChannel"  + juce::String (i + 1), (float) (i + 1));
-                arp.subdivision = (int) getParam ("subdivision"  + juce::String (i + 1), 4.0f);
-
-                arp.engine.prepareToPlay (sampleRate);
-                arp.engine.setPattern    (arp.pattern);
-                arp.engine.setSubdivision(arp.subdivision);
-                arp.engine.setTempo      (lastKnownBPM);
-                arp.engine.setChordMethod((int) apvts.getRawParameterValue ("chordMethod")->load());
-                arps.push_back (std::move (arp));
-            }
-        }
-    }
-
+    syncArpOnStatesFromParameters();
     sendChangeMessage();
 }
 
@@ -440,17 +500,36 @@ void TeArAudioProcessor::addArpeggiator()
         arp.engine.setPattern     (arp.pattern);
         arps.push_back (std::move (arp));
     }
+    storeArpsInState();
     sendChangeMessage();
 }
 
 void TeArAudioProcessor::removeArpeggiator (int index)
 {
+    int remaining = 0;
     {
         juce::ScopedLock lock (arpsLock);
         if ((int) arps.size() <= 1) return;
         if (!juce::isPositiveAndBelow (index, (int) arps.size())) return;
         arps.erase (arps.begin() + index);
+        remaining = (int) arps.size();
     }
+
+    // The on/off parameters are indexed by slot, not by instance, so erasing
+    // one in the middle would otherwise leave every arpeggiator after it
+    // wearing its neighbour's on/off state. Shift them down to follow the
+    // instances. Ascending order is safe: writing slot i never disturbs i + 1.
+    for (int i = index; i < remaining && i + 1 < MAX_ARPS; ++i)
+    {
+        auto* source = apvts.getRawParameterValue ("arp" + juce::String (i + 1) + "On");
+        if (auto* target = dynamic_cast<juce::AudioParameterBool*> (
+                apvts.getParameter ("arp" + juce::String (i) + "On")))
+            if (source != nullptr)
+                target->setValueNotifyingHost (*source > 0.5f ? 1.0f : 0.0f);
+    }
+
+    syncArpOnStatesFromParameters();
+    storeArpsInState();
     sendChangeMessage();
 }
 
@@ -474,6 +553,7 @@ void TeArAudioProcessor::setArpeggiatorPattern (int index, const juce::String& p
                 arps[index].engine.setSamplesUntilNextNote (master);
         }
     }
+    storeArpsInState();
     sendChangeMessage();
 }
 
@@ -494,6 +574,7 @@ void TeArAudioProcessor::randomizeArpeggiator (int index)
         arps[index].engine.randomize();
         arps[index].pattern = arps[index].engine.getPattern();
     }
+    storeArpsInState();
     sendChangeMessage();
 }
 
@@ -515,9 +596,12 @@ bool TeArAudioProcessor::isArpeggiatorOn (int index) const
 
 void TeArAudioProcessor::setArpeggiatorMidiChannel (int index, int channel)
 {
-    juce::ScopedLock lock (arpsLock);
-    if (juce::isPositiveAndBelow (index, (int) arps.size()))
+    {
+        juce::ScopedLock lock (arpsLock);
+        if (!juce::isPositiveAndBelow (index, (int) arps.size())) return;
         arps[index].midiChannel = juce::jlimit (1, 16, channel);
+    }
+    storeArpsInState();
 }
 
 int TeArAudioProcessor::getArpeggiatorMidiChannel (int index) const
@@ -530,12 +614,13 @@ int TeArAudioProcessor::getArpeggiatorMidiChannel (int index) const
 
 void TeArAudioProcessor::setArpeggiatorSubdivision (int index, int subdivIndex)
 {
-    juce::ScopedLock lock (arpsLock);
-    if (juce::isPositiveAndBelow (index, (int) arps.size()))
     {
+        juce::ScopedLock lock (arpsLock);
+        if (!juce::isPositiveAndBelow (index, (int) arps.size())) return;
         arps[index].subdivision = subdivIndex;
         arps[index].engine.setSubdivision (subdivIndex);
     }
+    storeArpsInState();
 }
 
 int TeArAudioProcessor::getArpeggiatorSubdivision (int index) const
@@ -558,6 +643,14 @@ const fxme::Arpeggiator& TeArAudioProcessor::getArpeggiator (int index) const
 {
     // No lock: acceptable minor race for visual feedback only
     return arps[index].engine;
+}
+
+juce::uint32 TeArAudioProcessor::getArpeggiatorNoteOnCount (int index) const
+{
+    juce::ScopedLock lock (arpsLock);
+    if (juce::isPositiveAndBelow (index, (int) arps.size()))
+        return arps[index].engine.getNoteOnCount();
+    return 0;
 }
 
 bool TeArAudioProcessor::areNotesHeld() const

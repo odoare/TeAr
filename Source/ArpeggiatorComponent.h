@@ -1,5 +1,6 @@
 #pragma once
 #include <JuceHeader.h>
+#include <FxmeTools/components/AccentToggle.h>
 #include "ArpLookAndFeel.h"
 
 class ArpeggiatorComponent : public juce::Component
@@ -50,15 +51,23 @@ public:
     void setHighlightedRegion (juce::Range<int> range);
     bool editorHasKeyboardFocus() const;
 
+    /** The arpeggiator's own on/off switch, at the bottom left next to the
+        step duration selector. Kept in sync with the processor by the editor;
+        setting it never fires onOnOffChanged. */
+    void setOnState (bool shouldBeOn);
+    bool getOnState() const;
+
     std::function<void (const juce::String&)> onPatternChanged;
     std::function<void (int)>                 onSubdivisionChanged;
     std::function<void (int)>                 onMidiChannelChanged;
+    std::function<void (bool)>                onOnOffChanged;
 
     void resized() override;
 
 private:
-    ArpLookAndFeel laf;
-    ArpTextEditor  textEditor;
+    ArpLookAndFeel     laf;
+    ArpTextEditor      textEditor;
+    fxme::AccentToggle onOffButton;
     juce::ComboBox subdivisionBox;
     juce::Label    midiChannelLabel;
     juce::ComboBox midiChannelBox;

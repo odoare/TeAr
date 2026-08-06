@@ -1,6 +1,13 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+namespace
+{
+    // Any non-zero id: makes the selection buttons mutually exclusive, so
+    // clicking one deselects the rest without the editor bookkeeping it.
+    constexpr int arpTabRadioGroup = 0x7ea4;
+}
+
 //==============================================================================
 TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
@@ -10,10 +17,33 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     auto& apvts = audioProcessor.getAPVTS();
     const auto neutral = juce::Colours::white;
 
+    // --- FX-Mechanics top bar: logo, name, preset strip, preset browser toggle ---
+    addAndMakeVisible (topBar);
+    topBar.setAccentColour (Theme::accent);
+    topBar.setBackgroundColour (Theme::background);
+
+    presetBar.setAccentColour (Theme::accent);
+
+    styleMomentaryButton (presetsButton, Theme::accent);
+    presetsButton.setClickingTogglesState (true);        // this one does latch
+    presetsButton.setButtonText ("PRESETS");
+    presetsButton.setTooltip ("Show or hide the preset browser");
+    presetsButton.onClick = [this] {
+        setPresetPanelVisible (presetsButton.getToggleState());
+    };
+
+    topBar.setRightControls (&presetBar, Theme::presetBarWidth,
+                             &presetsButton, Theme::presetToggleWidth);
+
+    // Added after the main UI so it stacks on top of it.
+    addChildComponent (presetOverlay);
+    presetOverlay.browser.setAccentColour (Theme::accent);
+
     // --- Toolbar buttons ---
     addAndMakeVisible (addArpButton);
-    addArpButton.setColour (juce::TextButton::buttonColourId,  juce::Colours::darkblue.darker (2.f));
-    addArpButton.setColour (juce::TextButton::textColourOffId, neutral);
+    styleMomentaryButton (addArpButton, Theme::accent);
+    addArpButton.setButtonText ("+");
+    addArpButton.setTooltip ("Add an arpeggiator");
     addArpButton.onClick = [this] {
         audioProcessor.addArpeggiator();
         selectedArpIndex = audioProcessor.getNumArpeggiators() - 1;
@@ -21,8 +51,9 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     };
 
     addAndMakeVisible (removeArpButton);
-    removeArpButton.setColour (juce::TextButton::buttonColourId,  juce::Colours::darkblue.darker (2.f));
-    removeArpButton.setColour (juce::TextButton::textColourOffId, neutral);
+    styleMomentaryButton (removeArpButton, Theme::accent);
+    removeArpButton.setButtonText ("-");
+    removeArpButton.setTooltip ("Remove the selected arpeggiator");
     removeArpButton.onClick = [this] {
         if (audioProcessor.getNumArpeggiators() <= 1) return;
         audioProcessor.removeArpeggiator (selectedArpIndex);
@@ -31,8 +62,9 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     };
 
     addAndMakeVisible (patternGenButton);
-    patternGenButton.setColour (juce::TextButton::buttonColourId,  juce::Colours::darkblue.darker (2.f));
-    patternGenButton.setColour (juce::TextButton::textColourOffId, neutral);
+    styleMomentaryButton (patternGenButton, Theme::accent);
+    patternGenButton.setButtonText ("?");
+    patternGenButton.setTooltip ("Generate a pattern for the selected arpeggiator");
     patternGenButton.onClick = [this] {
         if (!juce::isPositiveAndBelow (selectedArpIndex, (int) arpComponents.size())) return;
 
@@ -114,14 +146,30 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
         apvts, "followMidiIn", followMidiInButton);
 
     addAndMakeVisible (keyboardComponent);
-    addAndMakeVisible (logo);
 
     rebuildArpUI();
 
     startTimerHz (60);
     updateScaleDisplay();
 
-    setSize (800, 480);
+    setSize (820, 480 + Theme::topBarHeight + 6);
+}
+
+void TeArAudioProcessorEditor::styleMomentaryButton (fxme::AccentToggle& b, juce::Colour accent)
+{
+    // AccentToggle latches by default; the toolbar buttons are push buttons.
+    b.setClickingTogglesState (false);
+    b.setAccent (accent, accent.brighter (0.4f), Theme::buttonBody);
+}
+
+void TeArAudioProcessorEditor::setPresetPanelVisible (bool shouldBeVisible)
+{
+    presetOverlay.setVisible (shouldBeVisible);
+    if (presetsButton.getToggleState() != shouldBeVisible)
+        presetsButton.setToggleState (shouldBeVisible, juce::dontSendNotification);
+    if (shouldBeVisible)
+        presetOverlay.toFront (false);
+    resized();
 }
 
 TeArAudioProcessorEditor::~TeArAudioProcessorEditor()
@@ -145,6 +193,8 @@ void TeArAudioProcessorEditor::rebuildArpUI()
     tabButtons.clear();
     arpComponents.clear();
     lastStepIndices.clear();
+    lastNoteOnCounts.clear();
+    blinkLevels.clear();
 
     int numArps = audioProcessor.getNumArpeggiators();
     if (numArps == 0) { resized(); return; }
@@ -152,13 +202,14 @@ void TeArAudioProcessorEditor::rebuildArpUI()
 
     for (int i = 0; i < numArps; ++i)
     {
-        // Tab button — selects on first click, toggles on/off on second click
-        auto btn = std::make_unique<juce::TextButton> (juce::String (i + 1));
-        btn->onClick = [this, i] {
-            if (selectedArpIndex == i)
-                audioProcessor.setArpeggiatorOn (i, !audioProcessor.isArpeggiatorOn (i));
-            selectArp (i);
-        };
+        // Selection button — selecting only. Turning the arpeggiator on and
+        // off is the ON switch inside the arpeggiator panel below.
+        auto btn = std::make_unique<fxme::AccentToggle>();
+        btn->setButtonText (juce::String (i + 1));
+        btn->setTooltip ("Select arpeggiator " + juce::String (i + 1));
+        btn->setRadioGroupId (arpTabRadioGroup);
+        btn->setToggleState (i == selectedArpIndex, juce::dontSendNotification);
+        btn->onClick = [this, i] { selectArp (i); };
         addAndMakeVisible (*btn);
         tabButtons.push_back (std::move (btn));
 
@@ -168,6 +219,7 @@ void TeArAudioProcessorEditor::rebuildArpUI()
         comp->setText (audioProcessor.getArpeggiatorPattern (i), false);
         comp->setSubdivisionIndex (audioProcessor.getArpeggiatorSubdivision (i));
         comp->setMidiChannel (audioProcessor.getArpeggiatorMidiChannel (i));
+        comp->setOnState (audioProcessor.isArpeggiatorOn (i));
 
         comp->onPatternChanged = [this, i] (const juce::String& pat) {
             audioProcessor.setArpeggiatorPattern (i, pat);
@@ -178,17 +230,24 @@ void TeArAudioProcessorEditor::rebuildArpUI()
         comp->onMidiChannelChanged = [this, i] (int channel) {
             audioProcessor.setArpeggiatorMidiChannel (i, channel);
         };
+        comp->onOnOffChanged = [this, i] (bool on) {
+            audioProcessor.setArpeggiatorOn (i, on);
+        };
 
         addChildComponent (*comp);   // invisible by default
         arpComponents.push_back (std::move (comp));
 
         lastStepIndices.add (-1);
+        lastNoteOnCounts.push_back (audioProcessor.getArpeggiatorNoteOnCount (i));
+        blinkLevels.push_back (0.0f);
     }
 
     // Make selected one visible
     arpComponents[selectedArpIndex]->setVisible (true);
 
     updateTabAppearance();
+    if (presetOverlay.isVisible())
+        presetOverlay.toFront (false);   // the new children were added above it
     resized();
 }
 
@@ -207,25 +266,18 @@ void TeArAudioProcessorEditor::updateTabAppearance()
     int numArps = (int) tabButtons.size();
     for (int i = 0; i < numArps; ++i)
     {
-        auto col       = getArpColour (i);
-        bool isOn      = audioProcessor.isArpeggiatorOn (i);
-        bool isSelected= (i == selectedArpIndex);
-        auto display   = isOn ? col : col.withSaturation (0.15f).darker (0.5f);
+        const auto col  = getArpColour (i);
+        const bool isOn = audioProcessor.isArpeggiatorOn (i);
 
-        if (isSelected)
-        {
-            tabButtons[i]->setColour (juce::TextButton::buttonColourId,  display.withAlpha (0.85f));
-            tabButtons[i]->setColour (juce::TextButton::buttonOnColourId,display.withAlpha (0.85f));
-            tabButtons[i]->setColour (juce::TextButton::textColourOffId, juce::Colours::black);
-            tabButtons[i]->setColour (juce::TextButton::textColourOnId,  juce::Colours::black);
-        }
-        else
-        {
-            tabButtons[i]->setColour (juce::TextButton::buttonColourId,  display.withAlpha (0.15f));
-            tabButtons[i]->setColour (juce::TextButton::buttonOnColourId,display.withAlpha (0.15f));
-            tabButtons[i]->setColour (juce::TextButton::textColourOffId, display);
-            tabButtons[i]->setColour (juce::TextButton::textColourOnId,  display);
-        }
+        // The button latches on selection; a muted arpeggiator keeps its hue
+        // but loses its saturation, so "selected" and "playing" stay legible
+        // as two separate things.
+        Theme::accentToggle (*tabButtons[i],
+                             isOn ? col : col.withSaturation (0.2f).darker (0.4f));
+        tabButtons[i]->setToggleState (i == selectedArpIndex, juce::dontSendNotification);
+
+        if (juce::isPositiveAndBelow (i, (int) arpComponents.size()))
+            arpComponents[i]->setOnState (isOn);
     }
 
     removeArpButton.setEnabled (numArps > 1);
@@ -252,6 +304,30 @@ void TeArAudioProcessorEditor::timerCallback()
 {
     const bool notesAreHeld = audioProcessor.areNotesHeld();
     int numArps = audioProcessor.getNumArpeggiators();
+
+    // --- Note-on blink on the selection buttons ---
+    // The engine only exposes a monotonic counter, so a change since the last
+    // frame means "it fired", however many notes landed in between.
+    {
+        const float decay = Theme::blinkDecayPerSecond / 60.0f;
+        const int   count = juce::jmin ((int) tabButtons.size(), (int) blinkLevels.size());
+
+        for (int i = 0; i < count; ++i)
+        {
+            const auto noteOns = audioProcessor.getArpeggiatorNoteOnCount (i);
+            if (noteOns != lastNoteOnCounts[(size_t) i])
+            {
+                lastNoteOnCounts[(size_t) i] = noteOns;
+                blinkLevels[(size_t) i] = 1.0f;
+            }
+            else
+            {
+                blinkLevels[(size_t) i] = juce::jmax (0.0f, blinkLevels[(size_t) i] - decay);
+            }
+
+            tabButtons[(size_t) i]->setFlash (blinkLevels[(size_t) i]);
+        }
+    }
 
     // --- Scale / keyboard display ---
     if (notesAreHeld && numArps > 0)
@@ -358,14 +434,19 @@ void TeArAudioProcessorEditor::paint (juce::Graphics& g)
 
 void TeArAudioProcessorEditor::resized()
 {
-    auto bounds = getLocalBounds().reduced (10);
+    auto full = getLocalBounds();
+    topBar.setBounds (full.removeFromTop (Theme::topBarHeight));
+
+    // The browser covers the whole working area when open.
+    presetOverlay.setBounds (full);
+
+    auto bounds = full.reduced (10);
 
     // --- Global controls row ---
     auto controlsRow = bounds.removeFromTop (35);
     {
         juce::FlexBox fb;
         fb.flexDirection = juce::FlexBox::Direction::row;
-        fb.items.add (juce::FlexItem (logo)              .withWidth (50.0f));
         fb.items.add (juce::FlexItem (chordMethodLabel)  .withFlex (0.5f));
         fb.items.add (juce::FlexItem (chordMethodBox)    .withFlex (1.0f));
         fb.items.add (juce::FlexItem (scaleRootLabel)    .withFlex (0.5f).withMargin ({ 0, 0, 0, 10 }));
@@ -382,7 +463,7 @@ void TeArAudioProcessorEditor::resized()
 
     // --- Tab bar ---
     bounds.removeFromTop (5);
-    auto tabRow = bounds.removeFromTop (32);
+    auto tabRow = bounds.removeFromTop (Theme::tabRowHeight);
 
     addArpButton    .setBounds (tabRow.removeFromLeft (30)); tabRow.removeFromLeft (2);
     removeArpButton .setBounds (tabRow.removeFromLeft (30)); tabRow.removeFromLeft (2);
@@ -391,10 +472,13 @@ void TeArAudioProcessorEditor::resized()
     int numTabs = (int) tabButtons.size();
     if (numTabs > 0)
     {
-        int tabW = juce::jmin (80, juce::jmax (30, tabRow.getWidth() / numTabs));
+        // Selection buttons are compact squares now that they no longer double
+        // as the on/off control.
+        int tabW = juce::jmin (Theme::tabWidth,
+                               juce::jmax (24, (tabRow.getWidth() - 2 * numTabs) / numTabs));
         for (auto& btn : tabButtons)
         {
-            btn->setBounds (tabRow.removeFromLeft (tabW));
+            btn->setBounds (tabRow.removeFromLeft (tabW).reduced (0, 2));
             tabRow.removeFromLeft (2);
         }
     }

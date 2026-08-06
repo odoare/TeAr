@@ -1,4 +1,5 @@
 #include "ArpeggiatorComponent.h"
+#include "Theme.h"
 
 static const juce::StringArray subdivisionChoices { "1/4", "1/4T", "1/8", "1/8T",
                                                      "1/16", "1/16T", "1/32", "1/32T",
@@ -18,6 +19,15 @@ ArpeggiatorComponent::ArpeggiatorComponent()
     };
     textEditor.onFocusLost = [this] {
         if (onPatternChanged) onPatternChanged (textEditor.getText());
+    };
+
+    // On/off switch for this arpeggiator, immediately left of the step
+    // duration selector.
+    addAndMakeVisible (onOffButton);
+    onOffButton.setButtonText ("ON");
+    onOffButton.setTooltip ("Turn this arpeggiator on or off");
+    onOffButton.onClick = [this] {
+        if (onOnOffChanged) onOnOffChanged (onOffButton.getToggleState());
     };
 
     addAndMakeVisible (subdivisionBox);
@@ -71,6 +81,18 @@ void ArpeggiatorComponent::setArpColour (juce::Colour c)
     midiChannelBox.setColour (juce::ComboBox::textColourId,    colour);
     midiChannelBox.setColour (juce::ComboBox::outlineColourId, colour);
     midiChannelBox.setColour (juce::ComboBox::backgroundColourId, juce::Colours::transparentBlack);
+
+    Theme::accentToggle (onOffButton, colour);
+}
+
+void ArpeggiatorComponent::setOnState (bool shouldBeOn)
+{
+    onOffButton.setToggleState (shouldBeOn, juce::dontSendNotification);
+}
+
+bool ArpeggiatorComponent::getOnState() const
+{
+    return onOffButton.getToggleState();
 }
 
 void ArpeggiatorComponent::setText (const juce::String& text, bool sendNotification)
@@ -120,6 +142,9 @@ void ArpeggiatorComponent::resized()
     auto bottomRow = b.removeFromBottom (38);
     b.removeFromBottom (4);
     textEditor.setBounds (b);
+
+    onOffButton.setBounds (bottomRow.removeFromLeft (Theme::onOffWidth).reduced (2, 4));
+    bottomRow.removeFromLeft (4);
 
     int half = bottomRow.getWidth() / 2;
     subdivisionBox.setBounds (bottomRow.removeFromLeft (half).reduced (2, 0));

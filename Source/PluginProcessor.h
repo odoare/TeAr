@@ -1,6 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <FxmeTools/presets/PresetManager.h>
 #include "ArpInstance.h"
 
 class TeArAudioProcessor : public juce::AudioProcessor
@@ -67,7 +68,12 @@ public:
     bool             areNotesHeld() const;
     juce::Array<int> getHeldNotes() const;
 
+    /** Monotonic note-on count for one arpeggiator; a change between two GUI
+        polls means it fired. Returns 0 for an out-of-range index. */
+    juce::uint32     getArpeggiatorNoteOnCount (int index) const;
+
     juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
+    fxme::PresetManager& getPresetManager() noexcept { return presetManager; }
 
     static constexpr int MAX_ARPS = 16;
 
@@ -77,6 +83,30 @@ private:
 
     juce::AudioProcessorValueTreeState apvts;
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
+    fxme::PresetManager presetManager;
+
+    // --- Arpeggiator side state ---------------------------------------------
+    // The arpeggiators are dynamic (variable count, text patterns), so they
+    // cannot be APVTS parameters and live in `arps` instead. They are mirrored
+    // into an "Arpeggiators" child of apvts.state so that presets, which only
+    // ever carry the APVTS state, capture them too.
+
+    /** Snapshot of `arps` as a detached tree. Takes arpsLock; safe to call
+        from the thread that serialises state. */
+    juce::ValueTree buildArpsTree() const;
+
+    /** Message thread: refresh the "Arpeggiators" child of the live
+        apvts.state. Also what marks the preset dirty after an edit. */
+    void storeArpsInState();
+
+    /** Rebuilds `arps` from a tree produced by buildArpsTree(). */
+    void loadArpsFromTree (const juce::ValueTree& tree);
+
+    /** Reads each arpeggiator's on/off from its APVTS parameter, which stays
+        authoritative (it is the automatable one). */
+    void syncArpOnStatesFromParameters();
+
+    void loadLegacyArps (const juce::XmlElement& xmlState);
 
     double sampleRate   = 0.0;
     double lastKnownBPM = 120.0;

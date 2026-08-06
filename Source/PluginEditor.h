@@ -1,11 +1,16 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <FxmeTools/components/AccentToggle.h>
+#include <FxmeTools/components/PresetBarComponent.h>
+#include <FxmeTools/components/PresetComponent.h>
+#include <FxmeTools/components/TextEntryFocusFixer.h>
+#include <FxmeTools/components/TopBar.h>
 #include "PluginProcessor.h"
 #include "ArpLookAndFeel.h"
 #include "ArpeggiatorComponent.h"
 #include "KeyboardComponent.h"
-#include "FxmeLogo.h"
+#include "Theme.h"
 #include "popupWindow.h"
 
 class TeArAudioProcessorEditor : public juce::AudioProcessorEditor,
@@ -23,24 +28,53 @@ public:
     void resized() override;
 
 private:
+    /** Opaque backdrop for the preset browser: fxme::PresetComponent paints
+        only a translucent panel, so on its own the arpeggiator UI would show
+        through it. */
+    struct PresetOverlay : juce::Component
+    {
+        explicit PresetOverlay (fxme::PresetManager& manager) : browser (manager)
+        {
+            addAndMakeVisible (browser);
+        }
+
+        void paint (juce::Graphics& g) override { g.fillAll (Theme::background); }
+        void resized() override { browser.setBounds (getLocalBounds().reduced (8)); }
+
+        fxme::PresetComponent browser;
+    };
+
     void rebuildArpUI();
     void selectArp (int index);
     void updateTabAppearance();
+    void setPresetPanelVisible (bool shouldBeVisible);
+    void styleMomentaryButton (fxme::AccentToggle& b, juce::Colour accent);
 
     TeArAudioProcessor& audioProcessor;
 
     ArpLookAndFeel        arpLAF;
     fxme::FxmeLookAndFeel fxmeLAF;
 
+    // --- FX-Mechanics chrome ---
+    fxme::TopBar topBar { "TeAr", "the text arpeggiator", JucePlugin_VersionString,
+                          juce::ImageCache::getFromMemory (BinaryData::logo686_png,
+                                                           BinaryData::logo686_pngSize) };
+    fxme::PresetBarComponent presetBar { audioProcessor.getPresetManager() };
+    fxme::AccentToggle       presetsButton;
+    PresetOverlay            presetOverlay { audioProcessor.getPresetManager() };
+
     // Persistent toolbar buttons
-    juce::TextButton addArpButton    { "+" };
-    juce::TextButton removeArpButton { "-" };
-    juce::TextButton patternGenButton{ "?" };
+    fxme::AccentToggle addArpButton, removeArpButton, patternGenButton;
 
     // Per-arp UI (rebuilt on add/remove)
-    std::vector<std::unique_ptr<juce::TextButton>>        tabButtons;
-    std::vector<std::unique_ptr<ArpeggiatorComponent>>    arpComponents;
+    std::vector<std::unique_ptr<fxme::AccentToggle>>   tabButtons;
+    std::vector<std::unique_ptr<ArpeggiatorComponent>> arpComponents;
     int selectedArpIndex { 0 };
+
+    // Note-on blink: the tab lights up whenever its arpeggiator fires, tracked
+    // by polling the engine's monotonic note-on counter each frame.
+    std::vector<juce::uint32> lastNoteOnCounts;
+    std::vector<float>        blinkLevels;
 
     // Global controls
     juce::Label    chordMethodLabel;
@@ -59,11 +93,13 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> followMidiInAttachment;
 
     KeyboardComponent      keyboardComponent;
-    fxme::MidiTools::Scale       currentDisplayScale { 0, fxme::MidiTools::Scale::Type::Major };
+    fxme::MidiTools::Scale currentDisplayScale { 0, fxme::MidiTools::Scale::Type::Major };
     juce::Array<int>       lastStepIndices;
     int                    lastPlayedArpNote { -1 };
 
-    FxmeLogo logo { "", false };
+    // Declared last: it walks the children already in place and keeps typed
+    // input working in hosted plugin windows.
+    fxme::TextEntryFocusFixer textEntryFixer { *this };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (TeArAudioProcessorEditor)
 };
