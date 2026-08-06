@@ -1,10 +1,18 @@
 name: Release
 
 on:
+  # Fires when a tag is pushed with git.
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
-  # So the three builds and the verify step can be exercised without publishing.
+  # Fires when a release is published from the web UI. Creating a release on a
+  # tag that already exists creates no tag, so no push event happens and the
+  # trigger above never sees it. No recursion risk: the release this workflow
+  # publishes itself uses GITHUB_TOKEN, and GITHUB_TOKEN actions do not trigger
+  # further workflow runs.
+  release:
+    types: [published]
+  # So the builds and the verify step can be exercised without publishing.
   workflow_dispatch:
 
 jobs:
