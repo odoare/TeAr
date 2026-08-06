@@ -193,9 +193,26 @@ Pre-built binaries are available on the [Releases page](https://github.com/odoar
 
 ### macOS
 
-1. Download `TeAr-macOS.pkg` and run the installer.
-2. Open **System Settings → Privacy & Security** and click **Allow Anyway** for the TeAr component (required because the plugin is not notarized).
-3. Restart your DAW. Logic Pro users may need to trigger a rescan in **Plug-in Manager**.
+The macOS builds are universal (Apple Silicon and Intel) and require macOS 10.13 or later.
+
+TeAr is free software and is not signed with an Apple Developer ID (that is a paid Apple subscription). macOS marks anything downloaded through a browser as untrusted, and a DAW will then skip the plugin during its scan, usually with no error at all: it simply never shows up. Clearing that flag is a one-line command and is required whichever package you use.
+
+Using the installer:
+
+1. Download `TeAr-macOS.pkg`. macOS will refuse to open it on a double-click, so right-click it and choose **Open**, then confirm.
+2. Run the installer (it puts the VST3 in `/Library/Audio/Plug-Ins/VST3` and the AU in `/Library/Audio/Plug-Ins/Components`).
+3. Open Terminal and run:
+
+   ```sh
+   xattr -dr com.apple.quarantine /Library/Audio/Plug-Ins/VST3/TeAr.vst3
+   xattr -dr com.apple.quarantine /Library/Audio/Plug-Ins/Components/TeAr.component
+   ```
+
+4. Restart your DAW. Logic Pro users may need to trigger a rescan in **Plug-in Manager**.
+
+Using the zips instead: download `TeAr-VST3-macOS-universal.zip` and/or `TeAr-AU-macOS-universal.zip`, copy `TeAr.vst3` to `/Library/Audio/Plug-Ins/VST3` and `TeAr.component` to `/Library/Audio/Plug-Ins/Components` (or the same paths under `~/Library` for a single user), then run the same `xattr` commands above on the files you copied and restart your DAW.
+
+If TeAr still does not appear after clearing quarantine, that is a real bug rather than a signing problem, so please open an issue.
 
 > **Plugin type and usage in Logic Pro / GarageBand**
 >

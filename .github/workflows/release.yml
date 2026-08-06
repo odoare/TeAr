@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
+  # So the three builds and the verify step can be exercised without publishing.
+  workflow_dispatch:
 
 jobs:
   # ── Linux x86_64 ──────────────────────────────────────────────────────────
@@ -177,17 +179,58 @@ jobs:
 
       - name: Configure & Build
         run: |
-          cmake -B TeAr/build -S TeAr -DCMAKE_BUILD_TYPE=Release
-          cmake --build TeAr/build --config Release --parallel
+          # Passed here as well as in CMakeLists: a -D is in the cache before
+          # any CMakeLists line runs, so it cannot be lost to file ordering.
+          cmake -B TeAr/build -S TeAr \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13
+          # BinaryData alone first, serially: juceaide generating the resource
+          # blob in parallel with the rest is a known OOM/race.
+          cmake --build TeAr/build --config Release --target TeArBinaryData --parallel 1
+          # Capped: a universal build doubles the compile and link load.
+          cmake --build TeAr/build --config Release --parallel 2
 
-      - name: Verify universal binary
+      - name: Verify universal binaries
         run: |
-          lipo -info "TeAr/build/TeAr_artefacts/Release/VST3/TeAr.vst3/Contents/MacOS/TeAr"
+          set -euo pipefail
+          ART=TeAr/build/TeAr_artefacts/Release
+          status=0
+          for bundle in \
+            "$ART/VST3/TeAr.vst3/Contents/MacOS/TeAr" \
+            "$ART/AU/TeAr.component/Contents/MacOS/TeAr"
+          do
+            if [[ ! -f "$bundle" ]]; then
+              echo "::error::missing binary: $bundle"; status=1; continue
+            fi
+            info=$(lipo -info "$bundle")
+            echo "$info"
+            for arch in x86_64 arm64; do
+              grep -qw "$arch" <<< "$info" || { echo "::error::$bundle has no $arch slice"; status=1; }
+            done
+            vtool -show-build "$bundle" | grep -E 'minos|platform' || true
+          done
+          exit $status
+
+      # Ad-hoc signature: free, no Apple account. It only makes the bundle
+      # internally consistent (arm64 code needs *some* signature to run, and
+      # packaging can invalidate the linker's). It is NOT notarisation and does
+      # nothing for Gatekeeper — see the quarantine note in the README.
+      - name: Ad-hoc codesign
+        run: |
+          set -euo pipefail
+          ART=TeAr/build/TeAr_artefacts/Release
+          for b in "$ART/VST3/TeAr.vst3" "$ART/AU/TeAr.component"; do
+            codesign --force --deep --sign - --timestamp=none "$b"
+            codesign --verify --verbose "$b"
+          done
 
       - name: Build pkg installer
         run: |
           VERSION="${{ github.ref_name }}"
           VERSION="${VERSION#v}"
+          # Manual workflow_dispatch runs have no tag; keep in step with project().
+          [[ "$VERSION" =~ ^[0-9] ]] || VERSION="0.3.0"
           mkdir -p pkg_root/Library/Audio/Plug-Ins/VST3
           mkdir -p pkg_root/Library/Audio/Plug-Ins/Components
           cp -r "TeAr/build/TeAr_artefacts/Release/VST3/TeAr.vst3" \
@@ -208,9 +251,11 @@ jobs:
 
       - name: Package raw zips
         run: |
+          # -y stores symlinks as symlinks rather than following them, which is
+          # what keeps a macOS bundle (and its signature) intact through a zip.
           cd TeAr/build/TeAr_artefacts/Release
-          zip -r ${{ github.workspace }}/TeAr-VST3-macOS-universal.zip VST3/
-          zip -r ${{ github.workspace }}/TeAr-AU-macOS-universal.zip AU/
+          zip -ry ${{ github.workspace }}/TeAr-VST3-macOS-universal.zip VST3/
+          zip -ry ${{ github.workspace }}/TeAr-AU-macOS-universal.zip AU/
 
       - uses: actions/upload-artifact@v4
         with:
@@ -225,6 +270,8 @@ jobs:
   # ── Publish GitHub Release ────────────────────────────────────────────────
   release:
     needs: [build-linux-x86_64, build-linux-arm64, build-windows, build-macos]
+    # Manual runs build and verify only; publishing needs a tag.
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     permissions:
       contents: write      # create the release

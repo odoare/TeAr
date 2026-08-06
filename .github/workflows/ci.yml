@@ -140,9 +140,30 @@ jobs:
 
       - name: Configure & Build
         run: |
-          cmake -B TeAr/build -S TeAr -DCMAKE_BUILD_TYPE=Release
-          cmake --build TeAr/build --config Release --parallel
+          cmake -B TeAr/build -S TeAr \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13
+          cmake --build TeAr/build --config Release --target TeArBinaryData --parallel 1
+          cmake --build TeAr/build --config Release --parallel 2
 
-      - name: Verify universal binary
+      - name: Verify universal binaries
         run: |
-          lipo -info "TeAr/build/TeAr_artefacts/Release/VST3/TeAr.vst3/Contents/MacOS/TeAr"
+          set -euo pipefail
+          ART=TeAr/build/TeAr_artefacts/Release
+          status=0
+          for bundle in \
+            "$ART/VST3/TeAr.vst3/Contents/MacOS/TeAr" \
+            "$ART/AU/TeAr.component/Contents/MacOS/TeAr"
+          do
+            if [[ ! -f "$bundle" ]]; then
+              echo "::error::missing binary: $bundle"; status=1; continue
+            fi
+            info=$(lipo -info "$bundle")
+            echo "$info"
+            for arch in x86_64 arm64; do
+              grep -qw "$arch" <<< "$info" || { echo "::error::$bundle has no $arch slice"; status=1; }
+            done
+            vtool -show-build "$bundle" | grep -E 'minos|platform' || true
+          done
+          exit $status

@@ -1,14 +1,20 @@
 cmake_minimum_required(VERSION 3.22)
 
+# Must be set BEFORE project(): that is where CMake configures the Apple
+# toolchain and reads them. Set afterwards, the deployment target is ignored
+# outright and the architectures are unreliable, which on an Apple Silicon
+# runner silently yields an arm64-only "universal" build.
+# 10.13 (not 11.0) so Catalina hosts are not excluded; the arm64 slice is
+# clamped up to 11.0 by the toolchain anyway.
+if(APPLE)
+    set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13" CACHE STRING "Minimum macOS deployment version")
+    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Target architectures")
+endif()
+
 project(TeAr VERSION 0.3.0)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-if(APPLE)
-    set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0" CACHE STRING "Minimum macOS deployment version")
-    set(CMAKE_OSX_ARCHITECTURES "arm64;x86_64" CACHE STRING "Target architectures")
-endif()
 
 # JUCE is expected as a sibling directory: ../JUCE
 add_subdirectory(../JUCE JUCE)
