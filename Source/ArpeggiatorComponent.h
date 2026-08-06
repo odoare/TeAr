@@ -6,23 +6,18 @@
 class ArpeggiatorComponent : public juce::Component
 {
 public:
-    // TextEditor that grabs focus on click and handles Return / Shift+Return
+    // TextEditor handling Return / Shift+Return.
+    //
+    // Keyboard focus is not this class's problem: the editor owns a
+    // fxme::TextEntryFocusFixer, which claims and re-asserts the OS focus for
+    // every TextEditor beneath it. Return is handled here rather than there
+    // because this field is multiline, where the fixer deliberately leaves
+    // Return alone, while a pattern wants Return to commit and Shift+Return to
+    // insert a newline.
     class ArpTextEditor : public juce::TextEditor
     {
     public:
         std::function<void()> onReturnKey;
-
-        void mouseDown (const juce::MouseEvent& event) override
-        {
-            juce::TextEditor::mouseDown (event);
-            // Post the focus grab asynchronously so X11 processes it after the
-            // current event is fully dispatched rather than during it.
-            juce::Component::SafePointer<juce::Component> safeThis (this);
-            juce::MessageManager::callAsync ([safeThis] {
-                if (safeThis != nullptr && safeThis->isShowing())
-                    safeThis->grabKeyboardFocus();
-            });
-        }
 
         bool keyPressed (const juce::KeyPress& key) override
         {

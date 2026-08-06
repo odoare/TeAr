@@ -51,8 +51,6 @@ target_sources(TeAr PRIVATE
     Source/PluginEditor.cpp
     Source/ArpeggiatorComponent.cpp
     Source/popupWindow.cpp
-    Source/FxmeLogo.cpp
-    Source/ScaleComponent.cpp
     Source/KeyboardComponent.cpp
 )
 

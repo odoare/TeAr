@@ -37,16 +37,14 @@ Source/
   KeyboardComponent.*       the keyboard along the bottom
   ArpLookAndFeel.h          look-and-feel for the pattern text editor and combos
   popupWindow.*             the current (small) pattern generator callout
-  ScaleComponent.*          unused, superseded by KeyboardComponent
-  FxmeLogo.*                unused, superseded by fxme::TopBar
   libs/FxmeTools/           submodule, shared across all FX-Mechanics plugins
 tools/check-macos-artifact.sh   verifies a downloaded macOS release from Linux
 doc/architecture.md         this file
 ```
 
-`ScaleComponent` and `FxmeLogo` are still compiled (they are listed in
-`target_sources`) but nothing references them. They can be removed whenever
-someone is confident enough to do it.
+CMake is the only build system. The Projucer file was deleted in 0.4.0: it had
+not been part of the build for some time, still declared version 0.2, and
+referenced files that no longer existed.
 
 ---
 
@@ -181,16 +179,25 @@ earlier layout; the current one is `FxmeToolsTests`.
 
 ---
 
+## Step counting
+
+`numSteps()`, `getPatternIndexForStep()` and `getStepForPatternIndex()` are the
+same walk over the pattern asked three different questions, so they share a
+single private `advanceOneToken()`. They used to carry a copy of the walk each,
+and the copies had drifted: one counted `"` as a musical step while the others
+treated it as a block marker, so in any pattern using a root-relative block the
+playing-step highlight landed on the wrong characters, further out of place
+with every `"` passed. Fixed in 0.4.0.
+
+Anything added to the language has to be taught to `advanceOneToken()` and to
+`isStepCommand()`, and nowhere else. The round-trip property
+(`getStepForPatternIndex(getPatternIndexForStep(s)) == s` for every step) is
+asserted in the tests across a spread of patterns, and it is what catches this
+class of drift.
+
 ## Known issues
 
-- `getStepForPatternIndex()` counts `"` as a step while `numSteps()` and
-  `getPatternIndexForStep()` do not. This makes the playing-step highlight
-  drift in patterns using root-relative blocks. Left as it was rather than
-  changed under a syntax migration.
-- `ScaleComponent` and `FxmeLogo` are dead code that still compiles.
-- `ArpeggiatorComponent::ArpTextEditor` keeps its own asynchronous focus grab,
-  which is now redundant next to the editor's `fxme::TextEntryFocusFixer`.
-  Harmless, but only one of them needs to exist.
+None outstanding.
 
 ---
 
@@ -316,6 +323,52 @@ The current `ArpPatternPopup` is a 360x200 `CallOutBox` and will not hold a
 strategy selector plus a handful of sliders. It wants to become a proper panel
 with a preview and Regenerate / Apply, in the FX-Mechanics control style
 (`fxme::FxmeSlider`, `fxme::AccentToggle`, one `fxme::TextEntryFocusFixer`).
+
+## Prerequisite for per-sequence visual feedback
+
+Showing each sequence's length and its current position needs an engine change
+first, because today neither is knowable.
+
+What happens now: a probability roll is evaluated lazily, at the moment
+playback reaches the `p`. When the success and fallback branches have different
+lengths (`p5 1:(1 2 3)` plays one step or three), the loop's length is decided
+part way through the loop and differs from one pass to the next.
+
+Two consequences, both characterised in the tests:
+
+- `numSteps()` measures the success branch only, always, because the walk
+  steps over `:` and its fallback as a single token. For `p0 1:(1 2 3)` it
+  reports 1 while the loop plays 3. It is a property of the string, and for a
+  variable-length pattern there is no single right answer it could give.
+- `getCurrentStepIndex()` is derived from the character position by that same
+  walk, so every step inside a fallback group reports the same index. The
+  playing-step highlight already freezes there today.
+
+`reset(positionInfo)` also divides by `ppqDuration()` to place the pattern in
+the song grid when the transport starts mid-song, so it lands at the wrong
+offset for these patterns. (`syncToPlayHead()` computes the duration but never
+uses it, so ongoing sync is unaffected.)
+
+The fix is the one Olivier proposed: resolve a loop's rolls at loop start
+rather than as playback meets them. At the moment `pos` wraps to 0, walk the
+pattern once deciding every `p` outcome, record the decisions, and let the
+parser consume them instead of rolling. The loop then has a known length and a
+meaningful step index before its first note sounds, which is exactly what a
+position display needs.
+
+Two things to get right when implementing it:
+
+- The resolving walk has to agree with the playback parser about which
+  branches are entered, including `p` nested inside a group (how many rolls a
+  loop needs depends on which branches are taken, so it is a walk of the
+  decision tree, not a scan for `p` in the string). Two walks that must agree
+  is the same shape as the bug fixed in 0.4.0, so they should share code the
+  way `advanceOneToken()` is shared.
+- `?` (random degree) can stay lazy. It changes pitch, not length.
+
+Note that the fallback group syntax is parentheses. Braces are not part of the
+language: `p5 1:{123}` is read as a single-character fallback `{` followed by
+three ordinary steps, and measures as four steps.
 
 ## Related open question
 
