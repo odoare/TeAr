@@ -108,6 +108,32 @@ private:
 
     void loadLegacyArps (const juce::XmlElement& xmlState);
 
+    // --- Versioning ----------------------------------------------------------
+    // Two separate numbers, on purpose. "pluginVersion" is informational (the
+    // same string the top bar shows, from project(TeAr VERSION ...)), while
+    // "patternSyntax" is what migration actually tests: it moves only when the
+    // pattern language changes, which the plugin version does not.
+    //
+    // They live as properties on apvts.state rather than as attributes added
+    // at getStateInformation() time, because presets are written straight from
+    // apvts.copyState() and would otherwise carry no version at all.
+
+    /** Syntax the patterns in this build are written in. 1 = decimal velocity
+        on a level*16 scale; 2 = hexadecimal values (velocity 1-F, degrees
+        1-F). */
+    static constexpr int currentPatternSyntax = 2;
+
+    static const juce::Identifier pluginVersionProperty;
+    static const juce::Identifier patternSyntaxProperty;
+
+    /** Stamps both version properties onto `state`. */
+    static void writeVersionTo (juce::ValueTree& state);
+
+    /** Brings every pattern in `arps` up to currentPatternSyntax, given the
+        syntax version the state was written with. Absent (0) means v1: the
+        state predates versioning entirely. */
+    void migrateArpPatterns (int fromSyntax);
+
     double sampleRate   = 0.0;
     double lastKnownBPM = 120.0;
     bool   wasPlaying   = false;

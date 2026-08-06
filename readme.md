@@ -35,9 +35,12 @@ The pattern string consists of characters that define the arpeggio's behavior at
 
 ### Note Commands
 
+Degrees and velocity levels are written as a single character in **uppercase hexadecimal**: `0`-`9` then `A`-`F`, covering 0 to 15. Uppercase only, because `b` is the flat command and a lowercase `b` would be ambiguous. Octave (0-7) and probability (0-9) keep their decimal ranges, which already cover everything they need.
+
 | Command | Description |
 | :--- | :--- |
-| `1` to `9` | Plays a specific degree of the chord/scale (1=fundamental, 2=second, ..., 7=seventh). |
+| `1` to `F` | Plays a specific degree of the chord/scale (1=fundamental, 2=second, ..., 7=seventh, up to 15 for chords and scales with more than nine notes). |
+| `0` | Plays the current degree without naming one. Mostly used to close a step that only carries modifiers, as in `vF0`. |
 | `_` | Sustains the previously played note. |
 | `.` | A rest; no note is played. |
 | `+` | Plays the next degree in the chord (e.g., from 1 to 2). |
@@ -56,16 +59,24 @@ These are prefixed to a note command to alter its pitch for that step only.
 
 ### Velocity Modifiers
 
-Velocity is specified with a level from 1-8, which maps to a MIDI velocity from 16-127.
+Velocity is specified with a hexadecimal level from `1` to `F`, spread evenly over the MIDI range: `1` is 8, `8` is 68 and `F` is 127.
 
 | Command | Description | Example |
 | :--- | :--- | :--- |
-| `vN` | **Local**: Sets velocity for the next note only. | `v80` (plays root at max velocity) |
-| `v+` | **Local**: Increases velocity for the next note only. | `v+0` (plays root at the next velocity level) |
-| `v-` | **Local**: Decreases velocity for the next note only. | `v-0` (plays root at a lower velocity level) |
-| `VN` | **Global**: Sets velocity for all subsequent notes until the next `V` command. | `V40` (sets global velocity to 64) |
-| `V+` | **Global**: Increases velocity for all subsequent notes until the next `V` command. | `V+0` (increases global velocity to the next level) |
-| `V-` | **Global**: Decreases velocity for all subsequent notes until the next `V` command. | `V-0` (decreases global velocity to the previous level) |
+| `vN` | **Local**: Sets velocity for the next note only. | `vF0` (plays the current degree at max velocity) |
+| `v+` | **Local**: One level louder, for the next note only. | `v+0` |
+| `v-` | **Local**: One level quieter, for the next note only. | `v-0` |
+| `v?` | **Local**: Random velocity for the next note only. | `v?0` |
+| `VN` | **Global**: Sets velocity for all subsequent notes until the next `V` command. | `V80` (sets global velocity to 68) |
+| `V+` | **Global**: One level louder, from here on. | `V+0` |
+| `V-` | **Global**: One level quieter, from here on. | `V-0` |
+| `V?` | **Global**: Random velocity for all subsequent notes. | `V?0` |
+
+The relative commands step from whatever velocity is in effect at that point, and saturate rather than wrap: `V+` at `F` stays at `F`, and `V-` floors at `1` so a run of them can never silence the pattern.
+
+> **Changed in 0.4.0**: velocity levels used to run `1`-`8` in decimal over a coarser scale. Patterns saved by earlier versions are converted automatically when a session or preset is loaded, so they keep the velocities they had. A pattern typed or pasted in by hand is read with the new meaning, so an old `v8` now means roughly half velocity rather than maximum — use `vF`.
+>
+> Also new in 0.4.0: `v+`, `v-`, `V+` and `V-` now work. They were documented in earlier versions but had no effect, so a pattern of yours that uses them will start changing velocity where it previously did not.
 
 ### Octave Modifiers
 

@@ -38,12 +38,21 @@ TeArAudioProcessor::TeArAudioProcessor()
 
     // A preset only carries apvts.state, so the arpeggiators have to be folded
     // in on the way out and rebuilt on the way back in.
-    presetManager.onBeforeSave = [this] { storeArpsInState(); };
+    presetManager.onBeforeSave = [this]
+    {
+        storeArpsInState();
+        writeVersionTo (apvts.state);
+    };
     presetManager.onAfterLoad  = [this]
     {
+        // Read the preset's syntax version before anything rewrites it.
+        const int syntax = (int) apvts.state.getProperty (patternSyntaxProperty, 0);
+
         auto tree = apvts.state.getChildWithName ("Arpeggiators");
         if (tree.isValid())
             loadArpsFromTree (tree);
+
+        migrateArpPatterns (syntax);
         syncArpOnStatesFromParameters();
         sendChangeMessage();
     };
@@ -323,6 +332,29 @@ juce::AudioProcessorEditor* TeArAudioProcessor::createEditor()
 }
 
 //==============================================================================
+const juce::Identifier TeArAudioProcessor::pluginVersionProperty  { "pluginVersion" };
+const juce::Identifier TeArAudioProcessor::patternSyntaxProperty  { "patternSyntax" };
+
+void TeArAudioProcessor::writeVersionTo (juce::ValueTree& state)
+{
+    state.setProperty (pluginVersionProperty, JucePlugin_VersionString, nullptr);
+    state.setProperty (patternSyntaxProperty, currentPatternSyntax,     nullptr);
+}
+
+void TeArAudioProcessor::migrateArpPatterns (int fromSyntax)
+{
+    if (fromSyntax >= currentPatternSyntax)
+        return;
+
+    juce::ScopedLock lock (arpsLock);
+
+    for (auto& arp : arps)
+    {
+        arp.pattern = fxme::Arpeggiator::migratePatternV1toV2 (arp.pattern);
+        arp.engine.setPattern (arp.pattern);
+    }
+}
+
 juce::ValueTree TeArAudioProcessor::buildArpsTree() const
 {
     juce::ScopedLock lock (arpsLock);
@@ -443,9 +475,9 @@ void TeArAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
     if (existing.isValid())
         state.removeChild (existing, nullptr);
     state.appendChild (buildArpsTree(), nullptr);
+    writeVersionTo (state);
 
     std::unique_ptr<juce::XmlElement> xml (state.createXml());
-    xml->setAttribute ("version", 2);
     copyXmlToBinary (*xml, destData);
 }
 
@@ -457,12 +489,16 @@ void TeArAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 
     apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
 
+    // Absent means the state predates versioning, i.e. syntax 1.
+    const int syntax = (int) apvts.state.getProperty (patternSyntaxProperty, 0);
+
     auto arpsTree = apvts.state.getChildWithName ("Arpeggiators");
     if (arpsTree.isValid())
         loadArpsFromTree (arpsTree);
     else
-        loadLegacyArps (*xmlState);
+        loadLegacyArps (*xmlState);   // v1 by definition
 
+    migrateArpPatterns (syntax);
     syncArpOnStatesFromParameters();
     sendChangeMessage();
 }
