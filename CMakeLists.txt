@@ -42,9 +42,23 @@ juce_add_plugin(TeAr
     BUNDLE_ID                   "com.fx-mechanics.TeAr"
 )
 
+# Images and factory presets share one blob. PresetManager keeps every embedded
+# "*_xml" resource whose root tag matches the APVTS state type ("Parameters")
+# and ignores everything else, so the images cost it nothing.
+file(GLOB TEAR_PRESETS ${CMAKE_CURRENT_SOURCE_DIR}/Source/presets/*.xml)
+
 juce_add_binary_data(TeArBinaryData SOURCES
     Source/assets/logo686.png
+    Source/assets/Splash.png
+    Source/assets/icon.png
+    ${TEAR_PRESETS}
 )
+
+# The splash artwork is a few hundred kB, and running LTO over a blob that size
+# costs a lot of time and memory for nothing: generated resource data has no
+# call graph to optimise across.
+set_target_properties(TeArBinaryData PROPERTIES
+    INTERPROCEDURAL_OPTIMIZATION OFF)
 
 target_sources(TeAr PRIVATE
     Source/PluginProcessor.cpp

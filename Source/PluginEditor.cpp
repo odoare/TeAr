@@ -15,6 +15,21 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     topBar.setAccentColour (Theme::accent);
     topBar.setBackgroundColour (Theme::background);
 
+    // Centred in whatever space is left between the blurb and the preset
+    // controls. The bar gives the blurb priority and shrinks the artwork into
+    // the remaining gap, so it never collides with either.
+    topBar.setDecoration (juce::ImageCache::getFromMemory (BinaryData::icon_png,
+                                                           BinaryData::icon_pngSize));
+
+    // Clicking either the company logo or the icon reopens the splash.
+    topBar.onLogoClicked = [this] { splash.show(); };
+
+    // Hidden until shown; show() brings it to the front itself, so it does not
+    // matter that later children are added above it.
+    splash.setImage (juce::ImageCache::getFromMemory (BinaryData::Splash_png,
+                                                      BinaryData::Splash_pngSize));
+    addChildComponent (splash);
+
     presetBar.setAccentColour (Theme::accent);
 
     presetsButton.setTooltip ("Browse presets");
@@ -151,6 +166,11 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     updateScaleDisplay();
 
     setSize (820, 480 + Theme::topBarHeight + 6);
+
+    // First window of this run only: reopening the editor must not replay the
+    // splash, which is why the flag lives on the processor.
+    if (audioProcessor.claimSplash())
+        splash.show();
 }
 
 void TeArAudioProcessorEditor::styleMomentaryButton (fxme::AccentToggle& b, juce::Colour accent)
@@ -444,6 +464,8 @@ void TeArAudioProcessorEditor::paint (juce::Graphics& g)
 
 void TeArAudioProcessorEditor::resized()
 {
+    splash.setBounds (getLocalBounds());
+
     auto full = getLocalBounds();
     topBar.setBounds (full.removeFromTop (Theme::topBarHeight));
 

@@ -75,6 +75,18 @@ public:
     juce::AudioProcessorValueTreeState& getAPVTS() { return apvts; }
     fxme::PresetManager& getPresetManager() noexcept { return presetManager; }
 
+    /** True the first time it is called on this processor, false ever after.
+        The editor uses it to show the splash once. The flag has to live here
+        rather than on the editor, because the editor is destroyed and rebuilt
+        every time the window is closed and reopened. Not serialised: a
+        reloaded session is a new run and gets its splash. */
+    bool claimSplash() noexcept
+    {
+        const bool first = ! splashClaimed;
+        splashClaimed = true;
+        return first;
+    }
+
     static constexpr int MAX_ARPS = 16;
 
 private:
@@ -142,6 +154,8 @@ private:
     std::atomic<int> pendingScaleRootSemitone { -1 };
 
     juce::Array<int> heldNotes;
+
+    bool splashClaimed = false;   // runtime only, never saved
 
     // Scratch buffers reused by processBlock to avoid heap allocations on the audio thread.
     // Pre-warmed in prepareToPlay so their internal arrays have allocated capacity for the

@@ -4,6 +4,7 @@
 #include <FxmeTools/components/AccentToggle.h>
 #include <FxmeTools/components/PresetBarComponent.h>
 #include <FxmeTools/components/PresetComponent.h>
+#include <FxmeTools/components/SplashOverlay.h>
 #include <FxmeTools/components/TextEntryFocusFixer.h>
 #include <FxmeTools/components/TopBar.h>
 #include "PluginProcessor.h"
@@ -81,6 +82,7 @@ private:
     juce::TextButton         presetsButton { juce::String::fromUTF8 ("\xe2\x96\xbe") };
     PresetOverlay            presetOverlay { audioProcessor.getPresetManager() };
     GlowLine                 glowLine;
+    fxme::SplashOverlay      splash;
 
     // Persistent toolbar buttons
     fxme::AccentToggle addArpButton, removeArpButton, patternGenButton;

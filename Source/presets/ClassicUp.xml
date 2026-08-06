@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<Parameters presetName="Classic Up" presetIsFactory="1" pluginVersion="0.4.0" patternSyntax="2">
+  <PARAM id="chordMethod" value="0.0"/>
+  <PARAM id="scaleRoot" value="0.0"/>
+  <PARAM id="scaleType" value="0.0"/>
+  <PARAM id="followMidiIn" value="0.0"/>
+  <PARAM id="arp0On" value="1.0"/>
+  <PARAM id="arp1On" value="1.0"/>
+  <PARAM id="arp2On" value="1.0"/>
+  <PARAM id="arp3On" value="1.0"/>
+  <PARAM id="arp4On" value="1.0"/>
+  <PARAM id="arp5On" value="1.0"/>
+  <PARAM id="arp6On" value="1.0"/>
+  <PARAM id="arp7On" value="1.0"/>
+  <PARAM id="arp8On" value="1.0"/>
+  <PARAM id="arp9On" value="1.0"/>
+  <PARAM id="arp10On" value="1.0"/>
+  <PARAM id="arp11On" value="1.0"/>
+  <PARAM id="arp12On" value="1.0"/>
+  <PARAM id="arp13On" value="1.0"/>
+  <PARAM id="arp14On" value="1.0"/>
+  <PARAM id="arp15On" value="1.0"/>
+  <Arpeggiators count="1">
+    <Arp index="0" pattern="1 2 3 4" on="1" midiChannel="1" subdivision="4"/>
+  </Arpeggiators>
+</Parameters>

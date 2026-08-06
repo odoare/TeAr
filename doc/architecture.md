@@ -62,6 +62,16 @@ string, the MIDI channel, the step subdivision and a cached on/off. The count
 is dynamic and the patterns are text, so these cannot be APVTS parameters.
 
 **`fxme::PresetManager`.** Presets are just the APVTS state written to XML.
+Factory presets live in `Source/presets/*.xml` and are globbed into the binary
+data alongside the images; the manager keeps every embedded `*_xml` resource
+whose root tag is `Parameters` and ignores the rest.
+
+Two things a hand-written factory preset must get right. It needs
+`patternSyntax="2"` on the root, or the migration will treat it as a
+pre-0.4.0 file and rewrite its velocity digits. And its `arpNOn` parameters
+must agree with the `on` attributes in the `Arpeggiators` child, because
+`syncArpOnStatesFromParameters()` runs after the tree is read and the
+parameters win.
 
 ### The side-state problem, and how it is solved
 
@@ -114,14 +124,23 @@ with the new meaning, which is why the change is called out in `readme.md`.
 
 ## Editor
 
-Top to bottom: `fxme::TopBar` (logo, name, blurb, version, preset strip and
-the triangle preset button parked at its right end), a glowing identity line
+Top to bottom: `fxme::TopBar` (logo, name, blurb, the teardrop icon centred in
+the gap, version, preset strip and the triangle preset button parked at its
+right end), a glowing identity line
 straddling the bar's bottom edge, a row of global controls, the arpeggiator
 tab row, the selected arpeggiator's panel, and the keyboard along the bottom.
 
 The preset browser (`fxme::PresetComponent`) is an overlay covering the whole
 working area, wrapped in an opaque backdrop because it paints only a
 translucent panel of its own.
+
+A `fxme::SplashOverlay` shows `Source/assets/Splash.png` once per plugin
+instance, and again whenever the top bar logo is clicked. The once-per-run flag
+(`TeArAudioProcessor::claimSplash()`) lives on the processor rather than the
+editor, because the editor is destroyed and rebuilt every time the window is
+closed and reopened. It is not serialised, so a reloaded session counts as a
+new run. The overlay brings itself to the front when shown, so it does not
+matter that it is added before most of the GUI.
 
 `GlowLine` is a component rather than a `paint()` call because half the glow
 falls inside the top bar, and only a sibling stacked above it can bleed over a
