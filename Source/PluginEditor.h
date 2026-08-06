@@ -44,6 +44,24 @@ private:
         fxme::PresetComponent browser;
     };
 
+    /** The glowing identity line under the header. A component of its own
+        rather than a paint() call, because half the glow falls *inside* the
+        top bar: only a sibling stacked above it can bleed over the header. */
+    struct GlowLine : juce::Component
+    {
+        static constexpr int kGlow   = 16;
+        static constexpr int kHeight = 2 * kGlow + 2;
+
+        GlowLine() { setInterceptsMouseClicks (false, false); }
+
+        void paint (juce::Graphics& g) override
+        {
+            const auto b = getLocalBounds().toFloat();
+            Theme::paintTearLine (g, { 0.0f, b.getCentreY() - 1.0f, b.getWidth(), 2.0f },
+                                  (float) kGlow);
+        }
+    };
+
     void rebuildArpUI();
     void selectArp (int index);
     void updateTabAppearance();
@@ -60,8 +78,9 @@ private:
                           juce::ImageCache::getFromMemory (BinaryData::logo686_png,
                                                            BinaryData::logo686_pngSize) };
     fxme::PresetBarComponent presetBar { audioProcessor.getPresetManager() };
-    fxme::AccentToggle       presetsButton;
+    juce::TextButton         presetsButton { juce::String::fromUTF8 ("\xe2\x96\xbe") };
     PresetOverlay            presetOverlay { audioProcessor.getPresetManager() };
+    GlowLine                 glowLine;
 
     // Persistent toolbar buttons
     fxme::AccentToggle addArpButton, removeArpButton, patternGenButton;

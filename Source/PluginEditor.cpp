@@ -1,13 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-namespace
-{
-    // Any non-zero id: makes the selection buttons mutually exclusive, so
-    // clicking one deselects the rest without the editor bookkeeping it.
-    constexpr int arpTabRadioGroup = 0x7ea4;
-}
-
 //==============================================================================
 TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
@@ -24,18 +17,19 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
 
     presetBar.setAccentColour (Theme::accent);
 
-    styleMomentaryButton (presetsButton, Theme::accent);
-    presetsButton.setClickingTogglesState (true);        // this one does latch
-    presetsButton.setButtonText ("PRESETS");
-    presetsButton.setTooltip ("Show or hide the preset browser");
+    presetsButton.setTooltip ("Browse presets");
+    presetsButton.setMouseClickGrabsKeyboardFocus (false);
+    presetsButton.setColour (juce::TextButton::buttonColourId,
+                             juce::Colours::black.withAlpha (0.25f));
+    presetsButton.setColour (juce::TextButton::textColourOffId,
+                             Theme::accent.brighter (0.3f));
     presetsButton.onClick = [this] {
-        setPresetPanelVisible (presetsButton.getToggleState());
+        setPresetPanelVisible (! presetOverlay.isVisible());
     };
 
     topBar.setRightControls (&presetBar, Theme::presetBarWidth,
                              &presetsButton, Theme::presetToggleWidth);
 
-    // Added after the main UI so it stacks on top of it.
     addChildComponent (presetOverlay);
     presetOverlay.browser.setAccentColour (Theme::accent);
 
@@ -147,6 +141,10 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
 
     addAndMakeVisible (keyboardComponent);
 
+    // Last of the permanent children, so the glow stacks over the header and
+    // the main UI alike; the preset overlay brings itself to the front.
+    addAndMakeVisible (glowLine);
+
     rebuildArpUI();
 
     startTimerHz (60);
@@ -165,10 +163,12 @@ void TeArAudioProcessorEditor::styleMomentaryButton (fxme::AccentToggle& b, juce
 void TeArAudioProcessorEditor::setPresetPanelVisible (bool shouldBeVisible)
 {
     presetOverlay.setVisible (shouldBeVisible);
-    if (presetsButton.getToggleState() != shouldBeVisible)
-        presetsButton.setToggleState (shouldBeVisible, juce::dontSendNotification);
+    presetsButton.setButtonText (juce::String::fromUTF8 (shouldBeVisible
+                                                             ? "\xe2\x96\xb4"    // up triangle
+                                                             : "\xe2\x96\xbe")); // down triangle
     if (shouldBeVisible)
         presetOverlay.toFront (false);
+    glowLine.toFront (false);   // the line belongs to the header, above both
     resized();
 }
 
@@ -202,14 +202,27 @@ void TeArAudioProcessorEditor::rebuildArpUI()
 
     for (int i = 0; i < numArps; ++i)
     {
-        // Selection button — selecting only. Turning the arpeggiator on and
-        // off is the ON switch inside the arpeggiator panel below.
+        // Selection button: selects, and clicking the one already selected
+        // toggles that arpeggiator on or off — the same shortcut as before,
+        // now alongside the explicit ON switch in the panel below.
+        //
+        // Deliberately not a radio group and not self-toggling: JUCE turns the
+        // other buttons of a group off *with click notification*, so selecting
+        // a different arpeggiator would fire onClick on the previously
+        // selected one and flip it on or off behind the user's back. The lit
+        // state is set explicitly in updateTabAppearance instead, which leaves
+        // onClick meaning "this button was actually clicked".
         auto btn = std::make_unique<fxme::AccentToggle>();
         btn->setButtonText (juce::String (i + 1));
-        btn->setTooltip ("Select arpeggiator " + juce::String (i + 1));
-        btn->setRadioGroupId (arpTabRadioGroup);
+        btn->setTooltip ("Select arpeggiator " + juce::String (i + 1)
+                         + " (click again to turn it on or off)");
+        btn->setClickingTogglesState (false);
         btn->setToggleState (i == selectedArpIndex, juce::dontSendNotification);
-        btn->onClick = [this, i] { selectArp (i); };
+        btn->onClick = [this, i] {
+            if (selectedArpIndex == i)
+                audioProcessor.setArpeggiatorOn (i, ! audioProcessor.isArpeggiatorOn (i));
+            selectArp (i);
+        };
         addAndMakeVisible (*btn);
         tabButtons.push_back (std::move (btn));
 
@@ -248,6 +261,7 @@ void TeArAudioProcessorEditor::rebuildArpUI()
     updateTabAppearance();
     if (presetOverlay.isVisible())
         presetOverlay.toFront (false);   // the new children were added above it
+    glowLine.toFront (false);
     resized();
 }
 
@@ -269,11 +283,7 @@ void TeArAudioProcessorEditor::updateTabAppearance()
         const auto col  = getArpColour (i);
         const bool isOn = audioProcessor.isArpeggiatorOn (i);
 
-        // The button latches on selection; a muted arpeggiator keeps its hue
-        // but loses its saturation, so "selected" and "playing" stay legible
-        // as two separate things.
-        Theme::accentToggle (*tabButtons[i],
-                             isOn ? col : col.withSaturation (0.2f).darker (0.4f));
+        Theme::arpTabToggle (*tabButtons[i], col, isOn);
         tabButtons[i]->setToggleState (i == selectedArpIndex, juce::dontSendNotification);
 
         if (juce::isPositiveAndBelow (i, (int) arpComponents.size()))
@@ -437,6 +447,10 @@ void TeArAudioProcessorEditor::resized()
     auto full = getLocalBounds();
     topBar.setBounds (full.removeFromTop (Theme::topBarHeight));
 
+    // Straddles the header's bottom edge so the glow bleeds into both.
+    glowLine.setBounds (0, topBar.getBottom() - GlowLine::kHeight / 2,
+                        getWidth(), GlowLine::kHeight);
+
     // The browser covers the whole working area when open.
     presetOverlay.setBounds (full);
 
@@ -457,9 +471,9 @@ void TeArAudioProcessorEditor::resized()
         fb.performLayout (controlsRow.toFloat());
     }
 
-    // --- Scale component ---
-    bounds.removeFromTop (5);
-    keyboardComponent.setBounds (bounds.removeFromTop (60));
+    // --- Keyboard, along the bottom ---
+    keyboardComponent.setBounds (bounds.removeFromBottom (Theme::keyboardHeight));
+    bounds.removeFromBottom (5);
 
     // --- Tab bar ---
     bounds.removeFromTop (5);
