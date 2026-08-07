@@ -220,9 +220,48 @@ Anything added to the language has to be taught to `advanceOneToken()` and to
 asserted in the tests across a spread of patterns, and it is what catches this
 class of drift.
 
+## Transport sync
+
+`syncToPlayHead()` runs on every block while the host transport is playing,
+whether or not any note is held. It does two things, and until 0.4.1 it only
+did the first.
+
+The step grid: it sets `samplesUntilNextNote` to the distance from the start of
+the block to the next step boundary in the host timeline, recomputed from the
+host position each block rather than accumulated, so step onsets cannot drift.
+Positions within a millionth of a step of a boundary are snapped onto it, since
+hosts do not report exact binary fractions and a position a hair short of a
+boundary must not be read as a whole step still to go.
+
+The pattern phase: it also places `pos` so that pattern step *n* falls on song
+step *n* modulo the pattern length. Without this the pattern kept the grid but
+was free to sit at any rotation against the bar, and which rotation you got
+depended on how many steps had been consumed since the plugin loaded. Because
+`setChord()` does not reset `pos` and the engine's `processBlock()` only runs
+while notes are held, the rotation left over from one chord carried into the
+next and never corrected itself. Reported from Bitwig as patterns starting an
+eighth late and not repeating on the half note.
+
+The correction is applied only when the current step differs from the one the
+song asks for. Reassigning `pos` unconditionally would re-enter any `(` or `"`
+that opens the step, pushing a duplicate scope entry every block. When it does
+fire it clears the scope and probability stacks and returns the global octave
+and velocity to their defaults, because a jump abandons whatever blocks were
+open.
+
+Patterns whose length varies are excluded, via `patternHasFixedLength()`
+cached at `setPattern()` time. A probability group runs a different number of
+steps depending on the roll, so there is no single length to take a modulo
+against, and forcing `pos` each block would also yank the parser out of a
+fallback group it was midway through. Those patterns keep the grid and are left
+unanchored. Making them anchor correctly needs the rolls moved to the start of
+each pass, which is the pre-roll design below.
+
 ## Known issues
 
-None outstanding.
+Patterns containing probability groups (`pN (…):(…)`, or `pN (…)` with no
+fallback) are not phase-anchored to the bar. See the section above and the
+pre-roll design below.
 
 ---
 
