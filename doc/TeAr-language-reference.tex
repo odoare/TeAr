@@ -1,0 +1,515 @@
+% TeAr pattern language reference
+%
+% Build:  pdflatex TeAr-language-reference.tex   (twice, for the table of contents)
+%
+% Documents pattern syntax version 2, as implemented in TeAr 0.4.0.
+% (c) 2026 Olivier Doare -- SPDX-License-Identifier: LGPL-3.0-or-later
+
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=25mm]{geometry}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage[table]{xcolor}   % `table' for \rowcolor in the reference section
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage[hidelinks]{hyperref}
+
+\definecolor{tearGreen}{HTML}{00A000}
+\definecolor{tearCyan}{HTML}{008080}
+\definecolor{tearMagenta}{HTML}{A000A0}
+\definecolor{codebg}{HTML}{F2F2F5}
+
+% Group tints for the reference table, taken from the plugin's own
+% green -> cyan -> magenta identity: notes, then modifiers, then structure.
+\colorlet{grpNote}{tearGreen!11}
+\colorlet{grpMod}{tearCyan!11}
+\colorlet{grpStruct}{tearMagenta!11}
+\colorlet{rulecol}{black!55}
+
+% Pattern fragments are always monospaced; \pat is the one place that decides how.
+\newcommand{\pat}[1]{\texttt{#1}}
+\newcommand{\meta}[1]{\textit{#1}}
+
+\newenvironment{patternblock}
+  {\begin{quote}\ttfamily\noindent}
+  {\end{quote}}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small TeAr pattern language}
+\rhead{\small syntax version 2}
+\cfoot{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\title{\textbf{TeAr}\\[2mm]\large The Text Arpeggiator\\[4mm]
+       \normalsize Pattern language reference}
+\author{FX-Mechanics}
+\date{Syntax version 2 \quad---\quad TeAr 0.4.0}
+
+\begin{document}
+\maketitle
+\thispagestyle{empty}
+
+\begin{abstract}
+\noindent
+A TeAr pattern is a short string of text that turns the notes you hold into a
+sequence. Each pattern belongs to one arpeggiator, and several arpeggiators run
+at once, each with its own pattern, step duration and MIDI output channel.
+
+This document is the complete reference for the pattern language as
+implemented in TeAr 0.4.0. Section~\ref{sec:quickref} is a one-page summary for
+printing; the rest explains each command in turn.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+%======================================================================
+\section{How a pattern is read}
+
+A pattern is read left to right, one \emph{step} at a time. At each step of the
+arpeggiator's clock the engine consumes characters until it finds a
+\emph{note command}, plays whatever that command asks for, and stops there
+until the next step. When the end of the string is reached it wraps around to
+the beginning.
+
+Characters fall into three groups:
+
+\begin{description}[style=nextline,leftmargin=2em]
+  \item[Note commands] End a step and produce a note (or a deliberate silence).
+        Each one costs exactly one step of the clock.
+  \item[Prefixes] Modify the note that follows: pitch, velocity, octave,
+        probability. They cost no time of their own.
+  \item[Block markers] Group steps together to scope a modifier or to change
+        how degrees are interpreted. They cost no time either.
+\end{description}
+
+\paragraph{Whitespace is free.} Spaces are ignored entirely, so
+\pat{1 2 3}, \pat{123} and \pat{1~~~2~~~3} are the same pattern. Use spacing to
+make a pattern readable; it never changes what you hear.
+
+\paragraph{Degrees, not pitches.} A pattern never names an absolute pitch. It
+names a \emph{degree} of whatever you are holding, so the same pattern follows
+your chords. How degrees map to pitch depends on the chord method:
+
+\begin{center}
+\begin{tabular}{@{}lp{95mm}@{}}
+\toprule
+\textbf{Chord method} & \textbf{Meaning of degree $n$}\\
+\midrule
+Notes played        & The $n$th note of the chord you are holding.\\
+Chord played as is  & The $n$th note, kept at the pitch you played it.\\
+Single note         & The $n$th degree of the selected scale, relative to the
+                      note you press.\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+If a degree is not present in the chord, the engine substitutes a neighbouring
+one rather than falling silent. Degrees beyond the size of the chord wrap
+around, so degree 5 of a three-note chord is degree 2.
+
+%======================================================================
+\section{Values}
+\label{sec:values}
+
+Degrees and velocity levels are written as a \textbf{single uppercase
+hexadecimal character}:
+
+\begin{center}
+\pat{0 1 2 3 4 5 6 7 8 9 A B C D E F} \quad$=$\quad $0$ to $15$
+\end{center}
+
+One character per value keeps patterns compact and keeps every step the same
+width on screen. Uppercase only, because \pat{b} is the flat command
+(section~\ref{sec:pitch}) and a lowercase hexadecimal \pat{b} could not be told
+apart from it.
+
+Octave and probability arguments stay \textbf{decimal} (\pat{0}--\pat{9} and
+\pat{0}--\pat{7} respectively); their useful ranges fit in one decimal digit,
+so there is nothing to gain from extending them.
+
+%======================================================================
+\section{Note commands}
+
+Each of these ends a step. Everything else in the language is a prefix or a
+marker attached to one of them.
+
+\begin{center}
+\begin{tabular}{@{}clp{85mm}@{}}
+\toprule
+\textbf{Command} & & \textbf{Effect}\\
+\midrule
+\pat{1}--\pat{F} & & Play that degree ($1 =$ fundamental, $2 =$ second, and so
+                     on up to $15$).\\
+\pat{0}          & & Play the current degree without naming one. Used to close
+                     a step that only carries modifiers, as in \pat{vF0}.\\
+\pat{.}          & & Rest. Nothing sounds, and the step still takes its time.\\
+\pat{\_}         & & Sustain. The previous note keeps ringing through this
+                     step.\\
+\pat{+}          & & Play the next degree after the last one played.\\
+\pat{-}          & & Play the previous degree.\\
+\pat{=}          & & Repeat the last degree played.\\
+\pat{?}          & & Play a random degree that is present in the chord.\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Rest versus sustain.} \pat{.} cuts the note; \pat{\_} lets it ring.
+\pat{1 . . .} is a short note followed by silence, \pat{1 \_ \_ \_} is one note
+four steps long.
+
+%======================================================================
+\section{Pitch modifiers}
+\label{sec:pitch}
+
+Prefixed to a note command. They affect only that one note.
+
+\begin{center}
+\begin{tabular}{@{}clp{85mm}@{}}
+\toprule
+\textbf{Command} & & \textbf{Effect}\\
+\midrule
+\pat{\#} & & Raise the next note one semitone. Example: \pat{\#3}\\
+\pat{b}  & & Lower the next note one semitone. Example: \pat{b3}\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Note that \pat{b} in lowercase is always the flat command, while uppercase
+\pat{B} is the degree $11$. This is the reason the value alphabet in
+section~\ref{sec:values} is uppercase.
+
+%======================================================================
+\section{Velocity}
+
+Velocity has 15 levels, written in hexadecimal, spread evenly over the MIDI
+range: level $n$ produces $\mathrm{round}(n \times 127/15)$. So \pat{1} is 8,
+\pat{8} is 68, and \pat{F} is 127.
+
+Where a pattern sets no velocity, velocity follows your playing: each note is
+sounded at the velocity of the note you are holding, rounded to the nearest of
+the 15 levels. Until a note has been played the arpeggiator uses 96.
+
+A \pat{V} overrides the played velocity for as long as it is in scope. The two
+are tracked separately, so playing a new note does not disturb a \pat{V}, and a
+\pat{V} written inside a \pat{(\ )} block stops applying at the closing bracket:
+after it, notes follow your playing again unless another \pat{V} outside the
+block was already in force.
+
+Lowercase \pat{v} is \textbf{local}: it applies to the next note only.
+Uppercase \pat{V} is \textbf{global}: it applies from that point on, until
+another \pat{V} changes it or an enclosing block ends
+(section~\ref{sec:blocks}).
+
+\begin{center}
+\begin{tabular}{@{}clp{85mm}@{}}
+\toprule
+\textbf{Command} & & \textbf{Effect}\\
+\midrule
+\pat{v}\meta{N} & & Set the next note's level to \meta{N} (\pat{1}--\pat{F}).\\
+\pat{v+}        & & One level louder, for the next note only.\\
+\pat{v-}        & & One level quieter, for the next note only.\\
+\pat{v?}        & & A random level, for the next note only.\\
+\midrule
+\pat{V}\meta{N} & & Set the global level to \meta{N}.\\
+\pat{V+}        & & One level louder, from here on.\\
+\pat{V-}        & & One level quieter, from here on.\\
+\pat{V?}        & & A random global level.\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The relative forms step from whatever level is in effect at that point, and
+they \emph{saturate} rather than wrap: \pat{V+} at level \pat{F} stays at
+\pat{F}, and \pat{V-} floors at level \pat{1}, so a run of them can never
+silence a pattern.
+
+\paragraph{Beware of unbalanced global steps.} A pattern loops, so a
+\pat{V-} with no matching \pat{V+} applies again on every pass and walks the
+velocity down until it reaches the floor. Either balance them, or scope them
+inside a block (section~\ref{sec:blocks}), or use the local \pat{v} forms.
+
+\begin{patternblock}
+V8 vF1 2 3 vB2 3 vD1 2 3
+\end{patternblock}
+\noindent
+sets a moderate base level, then accents individual steps without any drift.
+
+%======================================================================
+\section{Octave}
+
+Same shape as velocity: lowercase \pat{o} is local to the next note, uppercase
+\pat{O} is global. Arguments are decimal, \pat{0}--\pat{7}.
+
+\begin{center}
+\begin{tabular}{@{}clp{85mm}@{}}
+\toprule
+\textbf{Command} & & \textbf{Effect}\\
+\midrule
+\pat{o}\meta{N} & & Play the next note in octave \meta{N}.\\
+\pat{o+}        & & One octave up, next note only.\\
+\pat{o-}        & & One octave down, next note only.\\
+\pat{o?}        & & A random octave, next note only.\\
+\midrule
+\pat{O}\meta{N} & & Set the global octave to \meta{N}.\\
+\pat{O+}        & & One octave up, from here on.\\
+\pat{O-}        & & One octave down, from here on.\\
+\pat{O?}        & & A random global octave.\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The relative forms clamp to the range 0--7. The default octave is 4.
+
+\paragraph{Prefixes stack.} Because octave commands are prefixes, \pat{o-o-}
+means ``down an octave, then down again''. To drop an octave and then play the
+previous degree, write \pat{o--}: the first two characters are the octave
+command, the third is the note command.
+
+The same drift warning as for velocity applies: an unbalanced global \pat{O-}
+lowers the octave on every pass of the loop. Use \pat{o-} or a block.
+
+%======================================================================
+\section{Probability}
+
+\pat{p}\meta{N} makes the following step happen with probability
+$\meta{N} \times 10\%$, where \meta{N} is a decimal digit \pat{0}--\pat{9}.
+\pat{p0} never fires and \pat{p9} fires nine times out of ten.
+
+What happens on a failed roll depends on whether a fallback is given after a
+colon. Without one, the step becomes a rest.
+
+\begin{center}
+\begin{tabular}{@{}lp{85mm}@{}}
+\toprule
+\textbf{Form} & \textbf{Behaviour}\\
+\midrule
+\pat{p5 1}            & Degree 1 half the time, otherwise a rest.\\
+\pat{p3 1:2}          & Degree 1 three times in ten, otherwise degree 2.\\
+\pat{p7 1:.}          & Degree 1 seven times in ten, otherwise an explicit rest.\\
+\pat{p5 1:\_}         & Degree 1 half the time, otherwise sustain the previous note.\\
+\pat{p5 1:?}          & Degree 1 half the time, otherwise a random chord note.\\
+\midrule
+\pat{p5 (1 2 3)}      & The whole group half the time, otherwise silence.\\
+\pat{p5 (1 2 3):(4 5)}& Degrees 1--3 on success, degrees 4--5 on failure.\\
+\pat{p8 (O+ 1 2 3)}   & The group an octave up, eight times in ten.\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\paragraph{Groups of unequal length.} When the two branches of a
+\pat{:} contain different numbers of steps, the loop's length depends on the
+roll, and so does where the pattern sits against the bar. This is legal and
+musically useful, but it means the sequence is no longer a fixed number of
+steps. Patterns that must stay locked to the bar should keep both branches the
+same length.
+
+%======================================================================
+\section{Blocks}
+\label{sec:blocks}
+
+\subsection{Modifier scope: \texttt{( \ldots\ )}}
+
+Any global modifier used inside parentheses applies only within them. At the
+closing bracket the global octave and velocity are restored to the values they
+had at the opening bracket. For velocity that includes the case where no
+\pat{V} was in force outside the bracket: the notes after it go back to
+following your playing.
+
+\begin{patternblock}
+1 2 (O+ 1 2 3) 1 2
+\end{patternblock}
+\noindent
+Steps 3--5 sound an octave up; steps 1, 2, 6 and 7 are unaffected. Because the
+octave is restored, this pattern can loop forever without drifting, which a
+bare \pat{O+} could not.
+
+Parentheses nest.
+
+\subsection{Root-relative notes: \texttt{" \ldots\ "}}
+
+In \emph{Single note} (scale) mode, degrees are normally read relative to the
+degree of the note you press. Steps between double quotes are instead read
+relative to the \textbf{scale root}, as though the root were being held,
+whatever you actually play.
+
+\begin{patternblock}
+1 2 "1 2 3" 4
+\end{patternblock}
+\noindent
+Steps 3--5 stay anchored to the scale root while the rest follow the pressed
+note. This is how you write a fixed counter-melody under a moving line.
+
+The quote characters are markers, not steps: the pattern above is seven steps
+long, not nine.
+
+%======================================================================
+\section{Counting steps}
+
+Exactly one thing costs time: a note command. Prefixes (\pat{\#}, \pat{b},
+\pat{v}, \pat{V}, \pat{o}, \pat{O}, \pat{p}) and block markers
+(\pat{(}, \pat{)}, \pat{"}) do not, and neither does whitespace.
+
+\begin{center}
+\begin{tabular}{@{}lcl@{}}
+\toprule
+\textbf{Pattern} & \textbf{Steps} & \textbf{Why}\\
+\midrule
+\pat{1 2 3}              & 3  & three note commands\\
+\pat{vF1 2 3}            & 3  & \pat{vF} is a prefix on the first\\
+\pat{1 b2}               & 2  & \pat{b} prefixes the \pat{2}\\
+\pat{1 B 2}              & 3  & uppercase \pat{B} is degree 11\\
+\pat{1 2 (O+ 1 2 3) 1 2} & 7  & brackets are markers\\
+\pat{1 "2 3" 4}          & 4  & quotes are markers\\
+\pat{p5 1:2}             & 1  & one step, two possible outcomes\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The step duration itself is not part of the pattern: it is the arpeggiator's
+own setting, chosen from \pat{1/4} down to \pat{1/64}, including triplets. Two
+arpeggiators running the same pattern at different step durations is the
+simplest way to build a polyrhythm.
+
+%======================================================================
+\section{Worked examples}
+
+\begin{center}
+\begin{longtable}{@{}p{62mm}p{80mm}@{}}
+\toprule
+\textbf{Pattern} & \textbf{What it does}\\
+\midrule
+\endhead
+\pat{1 2 3 4}
+  & A plain ascending arpeggio through the first four degrees.\\[1mm]
+\pat{1 2 3 (O+ 1 2 3) 3 2 1}
+  & Up, up an octave, then back down. The bracket restores the octave, so it
+    loops cleanly.\\[1mm]
+\pat{1 . 3 .} \quad and \quad \pat{. 2 . 4}
+  & Two arpeggiators interlocking: the second fills the gaps of the first. Give
+    them different MIDI channels to split them across instruments.\\[1mm]
+\pat{1 . . 2 . . 3 .}
+  & A three-against-eight Euclidean feel, with the degrees walking up.\\[1mm]
+\pat{p9 1 p5 3:. p7 2 p4 1:\_}
+  & A part that never repeats exactly: each step has its own likelihood, and
+    two of them have fallbacks.\\[1mm]
+\pat{V8 vF1 2 3 vB2 3}
+  & A moderate base velocity with accents on the first and fourth steps.\\[1mm]
+\pat{1 2 3 4 5 "1 3 5" 4 2}
+  & In scale mode, a running line that drops to a fixed root-anchored figure in
+    the middle.\\
+\bottomrule
+\end{longtable}
+\end{center}
+
+%======================================================================
+\section{Changes in syntax version 2}
+
+TeAr 0.4.0 introduced version 2 of the pattern syntax.
+
+\begin{itemize}[leftmargin=1.5em]
+  \item Degrees and velocity levels became uppercase hexadecimal. Degrees now
+        reach 15, so chords and scales with more than nine notes are fully
+        addressable, and velocity has 15 levels instead of 8.
+  \item \pat{v+}, \pat{v-}, \pat{V+} and \pat{V-} now work. They appeared in
+        earlier documentation but had no effect.
+\end{itemize}
+
+Only velocity changed meaning. Patterns saved by earlier versions are converted
+automatically when a session or a preset is loaded, so they keep the velocities
+they had.
+
+The conversion runs only where TeAr controls the load path. A pattern you
+retype or paste in by hand is read with the new meaning, so an old \pat{v8}
+now means roughly half velocity rather than maximum; write \pat{vF} instead.
+
+%======================================================================
+\newpage
+\section{Reference}
+\label{sec:quickref}
+
+% One row per command. Group headers carry the plugin's own green/cyan/magenta
+% identity: note commands, then modifiers, then structure.
+\newcommand{\grp}[3]{%
+  \rowcolor{#1}\multicolumn{3}{@{}l@{}}{\rule{0pt}{2.6ex}\textbf{#2}%
+    \normalfont\itshape\small\ \,#3}\\[0.4ex]}
+\newcommand{\rw}[3]{\pat{#1} & #2 & #3\\}
+
+% Tuned so the whole section stays on one page: it is meant to be printed and
+% kept next to the keyboard.
+\renewcommand{\arraystretch}{1.04}
+\setlength{\arrayrulewidth}{0.5pt}
+
+\noindent
+\begin{tabular}{@{}p{28mm}p{16mm}p{106mm}@{}}
+\toprule
+\textbf{Command} & \textbf{Scope} & \textbf{Effect}\\
+\midrule
+
+\grp{grpNote}{Note commands}{each one takes exactly one step}
+\pat{1}--\pat{F} & --- & Play that degree, 1 (fundamental) to 15.\\
+\rw{0}{---}{Play the current degree without naming one, as in \pat{vF0}.}
+\rw{.}{---}{Rest: nothing sounds, the step still takes its time.}
+\rw{\_}{---}{Sustain: the previous note rings on through this step.}
+\rw{+}{---}{The next degree after the last one played.}
+\rw{-}{---}{The previous degree.}
+\rw{=}{---}{Repeat the last degree played.}
+\rw{?}{---}{A random degree present in the chord.}
+\midrule
+
+\grp{grpMod}{Pitch}{prefix, affects the next note only}
+\rw{\#}{local}{Raise the next note one semitone.}
+\rw{b}{local}{Lower the next note one semitone. Uppercase \pat{B} is degree 11.}
+\midrule
+
+\grp{grpMod}{Velocity}{levels \pat{1}--\pat{F} over 1--127; follows the played note by default}
+\pat{v}\meta{N} & local & Set the next note's level.\\
+\rw{v+ \ v-}{local}{One level louder / quieter, next note only.}
+\rw{v?}{local}{A random level, next note only.}
+\pat{V}\meta{N} & global & Set the level from here on.\\
+\rw{V+ \ V-}{global}{One level louder / quieter, from here on.}
+\rw{V?}{global}{A random level from here on.}
+\midrule
+
+\grp{grpMod}{Octave}{decimal \pat{0}--\pat{7}; default 4}
+\pat{o}\meta{N} & local & Play the next note in that octave.\\
+\rw{o+ \ o-}{local}{One octave up / down, next note only.}
+\rw{o?}{local}{A random octave, next note only.}
+\pat{O}\meta{N} & global & Set the octave from here on.\\
+\rw{O+ \ O-}{global}{One octave up / down, from here on.}
+\rw{O?}{global}{A random octave from here on.}
+\midrule
+
+\grp{grpStruct}{Probability}{decimal \pat{0}--\pat{9}, in tenths}
+\pat{p}\meta{N} \meta{x} & --- & Play \meta{x} with probability \meta{N}$\times$10\%, else rest.\\
+\pat{p}\meta{N} \meta{x}\pat{:}\meta{y} & --- & Play \meta{y} instead when the roll fails.\\
+\pat{p}\meta{N} \pat{(\ldots)} & --- & Either branch may be a group of steps:
+                                       \pat{p}\meta{N} \pat{(\ldots):(\ldots)}.\\
+\midrule
+
+\grp{grpStruct}{Blocks}{markers, no step cost}
+\rw{( \ldots\ )}{---}{Scope global modifiers; octave and velocity are restored at the closing bracket.}
+\rw{" \ldots\ "}{---}{Read degrees from the scale root instead of the pressed note (scale mode).}
+\bottomrule
+\end{tabular}
+
+\vspace{3mm}
+
+\noindent
+\begin{tabular}{@{}p{34mm}p{116mm}@{}}
+\toprule
+\multicolumn{2}{@{}l@{}}{\textbf{Things that catch people out}}\\
+\midrule
+Spaces are free        & \pat{1 2 3} and \pat{123} are the same pattern.\\
+\pat{b} versus \pat{B} & Lowercase is flat, uppercase is degree 11.\\
+Globals drift          & An unbalanced \pat{V-} or \pat{O-} re-applies on every loop.\\
+Only notes cost time   & Prefixes and block markers take no step.\\
+\bottomrule
+\end{tabular}
+
+\end{document}
