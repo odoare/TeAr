@@ -14,7 +14,7 @@ endif()
 # Single source of the version: juce_add_plugin defaults the plugin version to
 # PROJECT_VERSION, so JucePlugin_VersionString (the top bar, and the version
 # stamped into saved states and presets) follows this line alone.
-project(TeAr VERSION 0.4.1)
+project(TeAr VERSION 0.4.2)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
