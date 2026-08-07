@@ -4,8 +4,14 @@ State of the plugin as of version 0.4.0. This file exists to prime a session
 (human or assistant) quickly: what the pieces are, which decisions were
 deliberate, and what is planned next.
 
-For the pattern language as a user sees it, read the tables in `readme.md`.
-This document covers how it is implemented and why.
+For the pattern language as a user sees it, read the tables in `readme.md`, or
+`doc/TeAr-language-reference.tex` for the full typeset reference (build it with
+`pdflatex TeAr-language-reference.tex`, twice, for the table of contents; the
+last page is a one-page card meant for printing). This document covers how the
+language is implemented and why.
+
+Keep the LaTeX reference in step with the parser when the language changes: it
+documents syntax version 2, and the version is on its title page.
 
 ---
 

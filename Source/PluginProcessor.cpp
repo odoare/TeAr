@@ -211,7 +211,7 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
             heldNotes.addIfNotAlreadyThere (msg.getNoteNumber());
             for (auto& arp : arps)
                 if (arp.onState)
-                    arp.engine.setGlobalVelocityFromMidi (msg.getVelocity());
+                    arp.engine.setPlayedVelocityFromMidi (msg.getVelocity());
             notesChanged = true;
         }
         else if (msg.isNoteOff())

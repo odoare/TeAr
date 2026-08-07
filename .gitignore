@@ -17,6 +17,13 @@
 /Assets/bak/
 /doxygen_docs/
 
+# LaTeX build artefacts (the .tex and the built .pdf are tracked)
+doc/*.aux
+doc/*.log
+doc/*.out
+doc/*.toc
+doc/*.synctex.gz
+
 # Common OS and editor files
 .DS_Store
 *.swp
