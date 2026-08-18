@@ -60,17 +60,6 @@ jobs:
           ref: 8.0.12
           path: JUCE
 
-      - name: Checkout FxmeJuceTools
-        uses: actions/checkout@v4
-        with:
-          repository: odoare/FxmeJuceTools
-          path: _fxme_tmp
-
-      - name: Install FxmeJuceTools module
-        run: |
-          mkdir -p JUCE/usermodules
-          mv _fxme_tmp/module/FxmeJuceTools JUCE/usermodules/FxmeJuceTools
-
       - name: Configure & Build
         run: |
           cmake -B TeAr/build -S TeAr -DCMAKE_BUILD_TYPE=Release
@@ -98,17 +87,6 @@ jobs:
           ref: 8.0.12
           path: JUCE
 
-      - name: Checkout FxmeJuceTools
-        uses: actions/checkout@v4
-        with:
-          repository: odoare/FxmeJuceTools
-          path: _fxme_tmp
-
-      - name: Install FxmeJuceTools module
-        run: |
-          mkdir -p JUCE/usermodules
-          mv _fxme_tmp/module/FxmeJuceTools JUCE/usermodules/FxmeJuceTools
-
       - name: Configure & Build
         run: |
           cmake -B TeAr/build -S TeAr -DCMAKE_BUILD_TYPE=Release
@@ -129,18 +107,6 @@ jobs:
           ref: 8.0.12
           path: JUCE
 
-      - name: Checkout FxmeJuceTools
-        uses: actions/checkout@v4
-        with:
-          repository: odoare/FxmeJuceTools
-          path: _fxme_tmp
-
-      - name: Install FxmeJuceTools module
-        shell: bash
-        run: |
-          mkdir -p JUCE/usermodules
-          mv _fxme_tmp/module/FxmeJuceTools JUCE/usermodules/FxmeJuceTools
-
       - name: Configure & Build
         run: |
           cmake -B TeAr/build -S TeAr
@@ -160,17 +126,6 @@ jobs:
           repository: juce-framework/JUCE
           ref: 8.0.12
           path: JUCE
-
-      - name: Checkout FxmeJuceTools
-        uses: actions/checkout@v4
-        with:
-          repository: odoare/FxmeJuceTools
-          path: _fxme_tmp
-
-      - name: Install FxmeJuceTools module
-        run: |
-          mkdir -p JUCE/usermodules
-          mv _fxme_tmp/module/FxmeJuceTools JUCE/usermodules/FxmeJuceTools
 
       - name: Configure & Build
         run: |
