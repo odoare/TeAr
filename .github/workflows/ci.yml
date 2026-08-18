@@ -1,7 +1,41 @@
 name: CI
 
+# Runs on every push to main and on pull requests, not only when someone
+# remembers to press the button. This repository is public, so GitHub-hosted
+# minutes (macOS runners included) are free.
+#
+# Tag pushes are deliberately not matched here: `branches:` excludes them, and
+# release.yml already builds, verifies and publishes on a tag.
+#
+# paths-ignore *skips* the workflow rather than passing it, which would leave a
+# required status check pending forever. `main` has no branch protection, so
+# that is not an issue today; drop these filters if required checks are ever
+# turned on.
 on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'doc/**'
+      - 'LICENSE'
+      - '.gitignore'
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'doc/**'
+      - 'LICENSE'
+      - '.gitignore'
   workflow_dispatch:
+
+# A second push supersedes the first: no point finishing a universal macOS
+# build for a commit that has already been replaced. Keyed by ref, so a pull
+# request and a push to main never cancel each other. Two runs on the same ref
+# do cancel, manual dispatches included, which is the intended behaviour: they
+# are testing the same commit.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   # ── Linux x86_64 ────────────────────────────────────────────────────────
