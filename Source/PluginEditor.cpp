@@ -77,14 +77,18 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     patternGenButton.onClick = [this] {
         if (!juce::isPositiveAndBelow (selectedArpIndex, (int) arpComponents.size())) return;
 
-        const auto& arp   = audioProcessor.getArpeggiator (selectedArpIndex);
         auto colour = getArpColour (selectedArpIndex);
 
-        auto makeEuclidian = [&arp] (int hits, int steps, int rotation) {
-            return const_cast<fxme::Arpeggiator&> (arp).makeEuclidianPattern (hits, steps, rotation);
+        // The two generators are static on fxme::Arpeggiator and read no
+        // engine state, so these lambdas capture nothing. They previously held
+        // a reference to arps[selectedArpIndex].engine, obtained without the
+        // lock and then stored in the popup, which outlives this click: a
+        // preset or session load clearing `arps` would have left it dangling.
+        auto makeEuclidian = [] (int hits, int steps, int rotation) {
+            return fxme::Arpeggiator::makeEuclidianPattern (hits, steps, rotation);
         };
-        auto makeRandom = [&arp] () {
-            return const_cast<fxme::Arpeggiator&> (arp).makeRandomPattern();
+        auto makeRandom = [] () {
+            return fxme::Arpeggiator::makeRandomPattern();
         };
         auto onOk = [this] (juce::String pattern) {
             audioProcessor.setArpeggiatorPattern (selectedArpIndex, pattern);
