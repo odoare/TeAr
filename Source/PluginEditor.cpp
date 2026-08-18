@@ -362,8 +362,7 @@ void TeArAudioProcessorEditor::timerCallback()
     // --- Scale / keyboard display ---
     if (notesAreHeld && numArps > 0)
     {
-        const auto& chord = audioProcessor.getArpeggiator (0).getChord();
-        auto chordMethod  = (int) audioProcessor.getAPVTS().getRawParameterValue ("chordMethod")->load();
+        auto chordMethod = (int) audioProcessor.getAPVTS().getRawParameterValue ("chordMethod")->load();
 
         // Actual held MIDI notes → red outline (works for all chord methods)
         juce::Array<int> inputNotes = audioProcessor.getHeldNotes();

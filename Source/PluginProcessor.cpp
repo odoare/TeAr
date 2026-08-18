@@ -691,6 +691,12 @@ juce::uint32 TeArAudioProcessor::getArpeggiatorNoteOnCount (int index) const
 
 bool TeArAudioProcessor::areNotesHeld() const
 {
+    // Locked like every other accessor here: processBlock mutates heldNotes
+    // under arpsLock, and the editor polls this at 60 Hz, so reading it
+    // unlocked was a plain data race. Blocking the message thread on it is
+    // safe, because processBlock takes the lock with ScopedTryLock and gives
+    // up rather than waiting.
+    juce::ScopedLock lock (arpsLock);
     return !heldNotes.isEmpty();
 }
 
