@@ -50,7 +50,9 @@ public:
 
     // --- Per-arp accessors ---
     void setArpeggiatorPattern (int index, const juce::String& pattern);
-    const juce::String& getArpeggiatorPattern (int index) const;
+    /** By value on purpose: a reference would outlive the lock guarding it.
+        Cheap, since juce::String is copy-on-write. */
+    juce::String getArpeggiatorPattern (int index) const;
     void randomizeArpeggiator (int index);
 
     void setArpeggiatorOn (int index, bool on);

@@ -411,7 +411,7 @@ void TeArAudioProcessorEditor::timerCallback()
             {
                 lastStepIndices.set (selectedArpIndex, currentStep);
                 const auto& arp     = audioProcessor.getArpeggiator (selectedArpIndex);
-                const auto& pattern = audioProcessor.getArpeggiatorPattern (selectedArpIndex);
+                const auto  pattern = audioProcessor.getArpeggiatorPattern (selectedArpIndex);
                 int stepStart = arp.getPatternIndexForStep (currentStep);
                 int stepEnd   = arp.getPatternIndexForStep (currentStep + 1);
                 if (stepEnd <= stepStart) stepEnd = pattern.length();

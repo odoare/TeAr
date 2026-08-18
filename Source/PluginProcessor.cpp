@@ -593,13 +593,20 @@ void TeArAudioProcessor::setArpeggiatorPattern (int index, const juce::String& p
     sendChangeMessage();
 }
 
-const juce::String& TeArAudioProcessor::getArpeggiatorPattern (int index) const
+juce::String TeArAudioProcessor::getArpeggiatorPattern (int index) const
 {
+    // By value, not by reference. A reference would outlive the lock that
+    // guards it: setStateInformation may run on a host thread, and its
+    // loadArpsFromTree clears `arps`, destroying the referent while the editor
+    // is still reading it. The copy is made before the ScopedLock is released,
+    // and it costs an atomic refcount bump rather than a character copy,
+    // because juce::String is copy-on-write over a std::atomic<int> refCount.
+    // That also keeps the buffer alive if another thread reassigns the
+    // original afterwards.
     juce::ScopedLock lock (arpsLock);
     if (juce::isPositiveAndBelow (index, (int) arps.size()))
         return arps[index].pattern;
-    static const juce::String empty;
-    return empty;
+    return {};
 }
 
 void TeArAudioProcessor::randomizeArpeggiator (int index)
