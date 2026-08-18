@@ -1,6 +1,7 @@
 #pragma once
 #include <JuceHeader.h>
 #include <FxmeTools/components/AccentToggle.h>
+#include <FxmeTools/lookandfeels/FxmeLookAndFeel.h>
 #include "ArpLookAndFeel.h"
 
 class ArpeggiatorComponent : public juce::Component
@@ -60,7 +61,20 @@ public:
     void resized() override;
 
 private:
-    ArpLookAndFeel     laf;
+    // Both declared before the widgets that point at them, so they outlive
+    // them under reverse-declaration-order destruction.
+    //
+    // Two look-and-feels rather than one: FxmeLookAndFeel draws the combo
+    // boxes and their menus in the house style, but overrides neither
+    // fillTextEditorBackground nor drawTextEditorOutline, which are what give
+    // the pattern field its rounded dark box. ArpLookAndFeel stays for that.
+    //
+    // One FxmeLookAndFeel per ArpeggiatorComponent, not one shared: a menu is
+    // its own window and takes its highlight from the look-and-feel that opened
+    // it, so this is what lets each arpeggiator's drop-downs carry that
+    // arpeggiator's own colour (see setArpColour).
+    ArpLookAndFeel        laf;
+    fxme::FxmeLookAndFeel fxmeLAF;
     ArpTextEditor      textEditor;
     fxme::AccentToggle onOffButton;
     juce::ComboBox subdivisionBox;

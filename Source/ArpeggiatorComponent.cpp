@@ -31,7 +31,7 @@ ArpeggiatorComponent::ArpeggiatorComponent()
     };
 
     addAndMakeVisible (subdivisionBox);
-    subdivisionBox.setLookAndFeel (&laf);
+    subdivisionBox.setLookAndFeel (&fxmeLAF);
     subdivisionBox.addItemList (subdivisionChoices, 1);
     subdivisionBox.setSelectedItemIndex (4, juce::dontSendNotification); // default 1/16
     subdivisionBox.onChange = [this] {
@@ -44,7 +44,7 @@ ArpeggiatorComponent::ArpeggiatorComponent()
     midiChannelLabel.setJustificationType (juce::Justification::centredRight);
 
     addAndMakeVisible (midiChannelBox);
-    midiChannelBox.setLookAndFeel (&laf);
+    midiChannelBox.setLookAndFeel (&fxmeLAF);
     for (int ch = 1; ch <= 16; ++ch)
         midiChannelBox.addItem (juce::String (ch), ch);
     midiChannelBox.setSelectedId (1, juce::dontSendNotification);
@@ -72,15 +72,22 @@ void ArpeggiatorComponent::setArpColour (juce::Colour c)
     textEditor.setColour (juce::TextEditor::highlightedTextColourId, juce::Colours::black);
     textEditor.setColour (juce::TextEditor::outlineColourId,         colour);
 
+    // The body colour is left to FxmeLookAndFeel's dark default rather than
+    // forced transparent: drawComboBox fills it as a rounded pill, which is the
+    // same vocabulary as the buttons.
     subdivisionBox.setColour (juce::ComboBox::textColourId,    colour);
     subdivisionBox.setColour (juce::ComboBox::outlineColourId, colour);
-    subdivisionBox.setColour (juce::ComboBox::backgroundColourId, juce::Colours::transparentBlack);
+    subdivisionBox.setColour (juce::ComboBox::arrowColourId,   colour);
 
     midiChannelLabel.setColour (juce::Label::textColourId, colour);
 
     midiChannelBox.setColour (juce::ComboBox::textColourId,    colour);
     midiChannelBox.setColour (juce::ComboBox::outlineColourId, colour);
-    midiChannelBox.setColour (juce::ComboBox::backgroundColourId, juce::Colours::transparentBlack);
+    midiChannelBox.setColour (juce::ComboBox::arrowColourId,   colour);
+
+    // A drop-down cannot see the box that opened it, so this is what makes this
+    // arpeggiator's menus highlight in its own colour instead of neutral grey.
+    fxmeLAF.setAccentColour (colour);
 
     Theme::accentToggle (onOffButton, colour);
 }

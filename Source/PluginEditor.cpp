@@ -10,6 +10,12 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     auto& apvts = audioProcessor.getAPVTS();
     const auto neutral = juce::Colours::white;
 
+    // A drop-down is a window of its own and never sees the combo that opened
+    // it, so the menu takes its highlight from the look-and-feel rather than
+    // from the box. One call here tints every menu this editor opens; without
+    // it they stay neutral grey against a cyan panel.
+    fxmeLAF.setAccentColour (Theme::accent);
+
     // --- FX-Mechanics top bar: logo, name, preset strip, preset browser toggle ---
     addAndMakeVisible (topBar);
     topBar.setAccentColour (Theme::accent);
@@ -108,10 +114,10 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     chordMethodLabel.setColour (juce::Label::textColourId, neutral);
 
     addAndMakeVisible (chordMethodBox);
-    chordMethodBox.setLookAndFeel (&arpLAF);
-    chordMethodBox.setColour (juce::ComboBox::textColourId,       neutral);
-    chordMethodBox.setColour (juce::ComboBox::outlineColourId,    neutral);
-    chordMethodBox.setColour (juce::ComboBox::backgroundColourId, juce::Colours::transparentBlack);
+    chordMethodBox.setLookAndFeel (&fxmeLAF);
+    chordMethodBox.setColour (juce::ComboBox::textColourId,    neutral);
+    chordMethodBox.setColour (juce::ComboBox::outlineColourId, neutral);
+    chordMethodBox.setColour (juce::ComboBox::arrowColourId,   neutral);
     if (auto* p = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter ("chordMethod")))
         { chordMethodBox.clear(); chordMethodBox.addItemList (p->choices, 1); }
     chordMethodAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
@@ -125,10 +131,10 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     scaleRootLabel.setColour (juce::Label::textColourId, neutral);
 
     addAndMakeVisible (scaleRootBox);
-    scaleRootBox.setLookAndFeel (&arpLAF);
-    scaleRootBox.setColour (juce::ComboBox::textColourId,       neutral);
-    scaleRootBox.setColour (juce::ComboBox::outlineColourId,    neutral);
-    scaleRootBox.setColour (juce::ComboBox::backgroundColourId, juce::Colours::transparentBlack);
+    scaleRootBox.setLookAndFeel (&fxmeLAF);
+    scaleRootBox.setColour (juce::ComboBox::textColourId,    neutral);
+    scaleRootBox.setColour (juce::ComboBox::outlineColourId, neutral);
+    scaleRootBox.setColour (juce::ComboBox::arrowColourId,   neutral);
     if (auto* p = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter ("scaleRoot")))
         { scaleRootBox.clear(); scaleRootBox.addItemList (p->choices, 1); }
     scaleRootAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
@@ -142,10 +148,10 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     scaleTypeLabel.setColour (juce::Label::textColourId, neutral);
 
     addAndMakeVisible (scaleTypeBox);
-    scaleTypeBox.setLookAndFeel (&arpLAF);
-    scaleTypeBox.setColour (juce::ComboBox::textColourId,       neutral);
-    scaleTypeBox.setColour (juce::ComboBox::outlineColourId,    neutral);
-    scaleTypeBox.setColour (juce::ComboBox::backgroundColourId, juce::Colours::transparentBlack);
+    scaleTypeBox.setLookAndFeel (&fxmeLAF);
+    scaleTypeBox.setColour (juce::ComboBox::textColourId,    neutral);
+    scaleTypeBox.setColour (juce::ComboBox::outlineColourId, neutral);
+    scaleTypeBox.setColour (juce::ComboBox::arrowColourId,   neutral);
     if (auto* p = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter ("scaleType")))
         { scaleTypeBox.clear(); scaleTypeBox.addItemList (p->choices, 1); }
     scaleTypeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
