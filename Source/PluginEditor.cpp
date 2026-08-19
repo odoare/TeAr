@@ -32,6 +32,11 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     // it they stay neutral grey against a cyan panel.
     fxmeLAF.setAccentColour (Theme::accent);
 
+    // A TooltipWindow parented to nullptr lives on the desktop, so it is drawn
+    // by the default look-and-feel rather than by this editor's unless it is
+    // pointed at ours explicitly.
+    tooltipWindow.setLookAndFeel (&fxmeLAF);
+
     // --- FX-Mechanics top bar: logo, name, preset strip, preset browser toggle ---
     addAndMakeVisible (topBar);
     topBar.setAccentColour (Theme::accent);
@@ -122,6 +127,57 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
             patternGenButton.getScreenBounds(), this);
     };
 
+    // --- Help ---
+    addAndMakeVisible (infoButton);
+    infoButton.setTooltip ("Pattern language and shortcuts");
+    infoButton.setColours ({ Theme::accent,                       // round button fill
+                             Theme::text,                         // glyph and body text
+                             Theme::background,                   // callout panel
+                             Theme::accent.withAlpha (0.35f) });  // panel hairline
+    infoButton.setInfo ("TeAr pattern language",
+        "Each step is one command. Spaces are ignored, so \"1 2 3\" and \"123\"\n"
+        "are the same pattern.\n"
+        "\n"
+        "NOTES   degrees are uppercase hex, 1-F = 1st to 15th\n"
+        "  1-F   play that degree of the chord or scale\n"
+        "  0     play the current degree, used to close a modifier as in vF0\n"
+        "  _     sustain the previous note\n"
+        "  .     rest\n"
+        "  +     next degree            -   previous degree\n"
+        "  ?     random note            =   repeat the last degree\n"
+        "\n"
+        "PITCH   prefix, this step only\n"
+        "  #     up a semitone          b   down a semitone\n"
+        "\n"
+        "VELOCITY   level 1-F over the MIDI range: 1 = 8, 8 = 68, F = 127\n"
+        "  vN v+ v- v?    this note only\n"
+        "  VN V+ V- V?    from here on, until the next V\n"
+        "  The relative forms saturate rather than wrap.\n"
+        "\n"
+        "OCTAVE   N is 0-7\n"
+        "  oN o+ o-       this note only\n"
+        "  ON O+ O-       from here on\n"
+        "\n"
+        "PROBABILITY   N is 1-9, the step plays N x 10% of the time\n"
+        "  pN X           X on success, otherwise a rest\n"
+        "  pN X:Y         Y plays instead on failure\n"
+        "  pN (a b):(c d) gates a whole group, fallback group optional\n"
+        "\n"
+        "BLOCKS\n"
+        "  ( ... )        octave and velocity are restored at the closing bracket\n"
+        "  \" ... \"        Scale mode only: anchor these steps to the Scale Root\n"
+        "                 rather than to the note being played\n"
+        "\n"
+        "EDITOR\n"
+        "  Return         commit the pattern\n"
+        "  Shift+Return   new line inside the pattern\n"
+        "  +  -           add or remove an arpeggiator\n"
+        "  ?              generate a Euclidean or random pattern\n"
+        "  a tab number   select it; click it again to switch it on or off\n"
+        "\n"
+        "The full reference is in the readme, and typeset in\n"
+        "doc/TeAr-language-reference.pdf.");
+
     // --- Global controls ---
     addAndMakeVisible (chordMethodLabel);
     chordMethodLabel.setText ("Method", juce::dontSendNotification);
@@ -175,10 +231,13 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     scaleTypeBox.onChange = [this] { updateScaleDisplay(); };
 
     addAndMakeVisible (followMidiInButton);
-    followMidiInButton.setButtonText ("Follow MIDI In");
-    followMidiInButton.setColour (juce::ToggleButton::textColourId, neutral);
-    followMidiInAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ButtonAttachment> (
-        apvts, "followMidiIn", followMidiInButton);
+    // fxme::FxmeButton is a plain Component, so it is not a TooltipClient; the
+    // inner ToggleButton it exposes is, and it fills the whole bounds, so the
+    // tooltip is found under the mouse either way.
+    followMidiInButton.button.setTooltip ("Take the scale root from the note being played");
+    // Forwards to the inner ToggleButton, so it picks up the house tick and the
+    // hover and disabled states that go with it.
+    followMidiInButton.setLookAndFeel (&fxmeLAF);
 
     addAndMakeVisible (keyboardComponent);
 
@@ -221,6 +280,8 @@ void TeArAudioProcessorEditor::setPresetPanelVisible (bool shouldBeVisible)
 
 TeArAudioProcessorEditor::~TeArAudioProcessorEditor()
 {
+    tooltipWindow.setLookAndFeel (nullptr);
+    followMidiInButton.setLookAndFeel (nullptr);
     chordMethodLabel.setLookAndFeel (nullptr);
     chordMethodBox.setLookAndFeel (nullptr);
     scaleRootLabel.setLookAndFeel (nullptr);
@@ -555,6 +616,11 @@ void TeArAudioProcessorEditor::resized()
     addArpButton    .setBounds (tabRow.removeFromLeft (30)); tabRow.removeFromLeft (2);
     removeArpButton .setBounds (tabRow.removeFromLeft (30)); tabRow.removeFromLeft (2);
     patternGenButton.setBounds (tabRow.removeFromLeft (30)); tabRow.removeFromLeft (10);
+
+    // Taken from the right before the tabs are laid out, so a growing number of
+    // arpeggiators eats into the middle rather than pushing this off the edge.
+    infoButton.setBounds (tabRow.removeFromRight (Theme::tabRowHeight).reduced (4));
+    tabRow.removeFromRight (6);
 
     int numTabs = (int) tabButtons.size();
     if (numTabs > 0)

@@ -2,6 +2,8 @@
 
 #include <JuceHeader.h>
 #include <FxmeTools/components/AccentToggle.h>
+#include <FxmeTools/components/FxmeButton.h>
+#include <FxmeTools/components/InfoButton.h>
 #include <FxmeTools/components/PresetBarComponent.h>
 #include <FxmeTools/components/PresetComponent.h>
 #include <FxmeTools/components/SplashOverlay.h>
@@ -92,6 +94,7 @@ private:
 
     // Persistent toolbar buttons
     fxme::AccentToggle addArpButton, removeArpButton, patternGenButton;
+    fxme::InfoButton   infoButton;
 
     // Per-arp UI (rebuilt on add/remove)
     std::vector<std::unique_ptr<fxme::AccentToggle>>   tabButtons;
@@ -116,13 +119,23 @@ private:
     juce::ComboBox scaleTypeBox;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> scaleTypeAttachment;
 
-    juce::ToggleButton followMidiInButton;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ButtonAttachment> followMidiInAttachment;
+    // fxme::FxmeButton owns its own ButtonAttachment, so there is no separate
+    // attachment member to keep in step. Declared after `audioProcessor`, whose
+    // APVTS it binds to at construction.
+    fxme::FxmeButton followMidiInButton { audioProcessor.getAPVTS(), "followMidiIn",
+                                          "Follow MIDI In", juce::Colours::white };
 
     KeyboardComponent      keyboardComponent;
     fxme::MidiTools::Scale currentDisplayScale { 0, fxme::MidiTools::Scale::Type::Major };
     juce::Array<int>       lastStepIndices;
     int                    lastPlayedArpNote { -1 };
+
+    /** Nothing shows a tooltip unless something owns one of these. Parented to
+        nullptr, so it lives on the desktop and is drawn by the *default*
+        look-and-feel unless pointed at ours, which the constructor does. Its
+        own constructor calls setAlwaysOnTop, so where it sits among these
+        members has no bearing on z-order. */
+    juce::TooltipWindow tooltipWindow { nullptr, 700 };
 
     // Declared last: it walks the children already in place and keeps typed
     // input working in hosted plugin windows.
