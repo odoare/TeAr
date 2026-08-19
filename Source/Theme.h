@@ -78,9 +78,6 @@ namespace Theme
     inline const juce::Colour dimText      { 0xff9a9aa8 };
     inline const juce::Colour buttonBody   { 0xff2b2b2b };
 
-    // The editor's own gradient, kept from the original design.
-    inline const juce::Colour panelTint    { juce::Colour::fromFloatRGBA (0.15f, 0.15f, 0.25f, 1.0f) };
-
     // Geometry
     inline constexpr int topBarHeight      = 54;
     inline constexpr int presetBarWidth    = 190;

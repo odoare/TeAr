@@ -1,6 +1,6 @@
 # TeAr architecture and roadmap
 
-State of the plugin as of version 0.4.0. This file exists to prime a session
+State of the plugin as of version 0.4.2. This file exists to prime a session
 (human or assistant) quickly: what the pieces are, which decisions were
 deliberate, and what is planned next.
 
@@ -33,7 +33,7 @@ with its own pattern, step duration, MIDI output channel and on/off state.
 ## Layout
 
 ```
-CMakeLists.txt              project(TeAr VERSION 0.4.0) is the single version source
+CMakeLists.txt              project(TeAr VERSION 0.4.2) is the single version source
 Source/
   PluginProcessor.{h,cpp}   APVTS, the arpeggiator vector, state, presets
   PluginEditor.{h,cpp}      the whole GUI

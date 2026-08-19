@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include <FxmeTools/lookandfeels/PanelBackground.h>
 
 namespace
 {
@@ -566,15 +567,11 @@ void TeArAudioProcessorEditor::updateScaleDisplay()
 //==============================================================================
 void TeArAudioProcessorEditor::paint (juce::Graphics& g)
 {
-    auto diagonale   = (getLocalBounds().getTopLeft() - getLocalBounds().getBottomRight()).toFloat();
-    auto length      = diagonale.getDistanceFromOrigin();
-    auto perpendicular = diagonale.rotatedAboutOrigin (juce::degreesToRadians (270.0f)) / length;
-    auto height      = float (getWidth() * getHeight()) / length;
-    auto bluegreengrey = juce::Colour::fromFloatRGBA (0.15f, 0.15f, 0.25f, 1.0f);
-    juce::ColourGradient grad (bluegreengrey.darker().darker().darker(), perpendicular * height,
-                               bluegreengrey, perpendicular * -height, false);
-    g.setGradientFill (grad);
-    g.fillAll();
+    // The corner-to-corner diagonal gradient this used to build by hand is the
+    // house backdrop, and FxmeTools ships it. Handing it Theme::accent rather
+    // than the old fixed blue-grey is what makes a family of differently
+    // tinted plugins read as one product.
+    fxme::paintComponentBackground (g, getLocalBounds().toFloat(), Theme::accent);
 }
 
 void TeArAudioProcessorEditor::resized()

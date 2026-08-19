@@ -11,6 +11,9 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <FxmeTools/components/AccentToggle.h>
+#include <FxmeTools/lookandfeels/FxmeLookAndFeel.h>
+#include "ArpLookAndFeel.h"
 
 class ArpPatternPopup : public juce::Component
 {
@@ -25,13 +28,21 @@ public:
     void resized() override;
 
 private:
+    // Declared before the widgets that point at them, so they outlive them.
+    // The same pairing the arpeggiator panel uses: the house look-and-feel for
+    // the labels and menus, ArpLookAndFeel for the rounded dark box behind a
+    // text field, which the house one does not draw.
+    fxme::FxmeLookAndFeel laf;
+    ArpLookAndFeel        textLaf;
+
     juce::Label patternDisplay;
     juce::Label hitsLabel, stepsLabel, rotateLabel;
     juce::TextEditor hitsEditor, stepsEditor, rotateEditor;
-    juce::TextButton randomizeBtn{ "Randomize" };
-    juce::TextButton euclidBtn{ "Make Euclidean" };
-    juce::TextButton okBtn{ "OK" };
-    juce::TextButton cancelBtn{ "Cancel" };
+
+    // fxme::AccentToggle rather than juce::TextButton, matching the toolbar
+    // buttons these sit under. They latch by default, so each one turns that
+    // off in the constructor.
+    fxme::AccentToggle randomizeBtn, euclidBtn, okBtn, cancelBtn;
 
     std::function<juce::String(int, int, int)> makeEuclidianCallback;
     std::function<juce::String()> makeRandomCallback;
