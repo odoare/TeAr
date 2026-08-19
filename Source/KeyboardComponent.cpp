@@ -105,7 +105,9 @@ void KeyboardComponent::paint (juce::Graphics& g)
         if (wIdx == 0)
         {
             g.setColour (juce::Colours::darkgrey.darker());
-            g.setFont (juce::Font (9.f));
+            // Graphics::setFont(float) is a genuine overload, not the
+            // deprecated Font(float) constructor, so this needs no FontOptions.
+            g.setFont (9.0f);
             g.drawText ("C" + juce::String (startOctave + oct),
                         x, h - 14.f, wkW, 12.f, juce::Justification::centred);
         }

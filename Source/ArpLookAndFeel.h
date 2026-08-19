@@ -51,5 +51,11 @@ public:
         g.fillPath (arrow);
     }
 
-    juce::Font getLabelFont (juce::Label&) override { return {15.0f}; }
+    // Spelled out rather than `return {15.0f};`: the braced form goes through
+    // the deprecated Font(float) constructor by implicit conversion, which a
+    // grep for `juce::Font (` does not find.
+    juce::Font getLabelFont (juce::Label&) override
+    {
+        return juce::Font (juce::FontOptions (15.0f));
+    }
 };

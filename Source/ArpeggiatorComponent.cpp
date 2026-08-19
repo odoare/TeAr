@@ -10,7 +10,8 @@ ArpeggiatorComponent::ArpeggiatorComponent()
     addAndMakeVisible (textEditor);
     textEditor.setLookAndFeel (&laf);
     textEditor.setMultiLine (true);
-    textEditor.setFont (juce::Font (juce::Font::getDefaultMonospacedFontName(), 24.0f, juce::Font::plain));
+    textEditor.setFont (juce::Font (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(),
+                                                       24.0f, juce::Font::plain)));
     textEditor.setColour (juce::TextEditor::backgroundColourId,     juce::Colours::transparentBlack);
 
     textEditor.onReturnKey = [this] {

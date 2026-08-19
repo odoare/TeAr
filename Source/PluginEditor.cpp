@@ -118,8 +118,8 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     chordMethodBox.setColour (juce::ComboBox::textColourId,    neutral);
     chordMethodBox.setColour (juce::ComboBox::outlineColourId, neutral);
     chordMethodBox.setColour (juce::ComboBox::arrowColourId,   neutral);
-    if (auto* p = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter ("chordMethod")))
-        { chordMethodBox.clear(); chordMethodBox.addItemList (p->choices, 1); }
+    if (auto* param = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter ("chordMethod")))
+        { chordMethodBox.clear(); chordMethodBox.addItemList (param->choices, 1); }
     chordMethodAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
         apvts, "chordMethod", chordMethodBox);
     chordMethodBox.onChange = [this] { updateScaleDisplay(); };
@@ -135,8 +135,8 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     scaleRootBox.setColour (juce::ComboBox::textColourId,    neutral);
     scaleRootBox.setColour (juce::ComboBox::outlineColourId, neutral);
     scaleRootBox.setColour (juce::ComboBox::arrowColourId,   neutral);
-    if (auto* p = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter ("scaleRoot")))
-        { scaleRootBox.clear(); scaleRootBox.addItemList (p->choices, 1); }
+    if (auto* param = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter ("scaleRoot")))
+        { scaleRootBox.clear(); scaleRootBox.addItemList (param->choices, 1); }
     scaleRootAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
         apvts, "scaleRoot", scaleRootBox);
     scaleRootBox.onChange = [this] { updateScaleDisplay(); };
@@ -152,8 +152,8 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     scaleTypeBox.setColour (juce::ComboBox::textColourId,    neutral);
     scaleTypeBox.setColour (juce::ComboBox::outlineColourId, neutral);
     scaleTypeBox.setColour (juce::ComboBox::arrowColourId,   neutral);
-    if (auto* p = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter ("scaleType")))
-        { scaleTypeBox.clear(); scaleTypeBox.addItemList (p->choices, 1); }
+    if (auto* param = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter ("scaleType")))
+        { scaleTypeBox.clear(); scaleTypeBox.addItemList (param->choices, 1); }
     scaleTypeAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (
         apvts, "scaleType", scaleTypeBox);
     scaleTypeBox.onChange = [this] { updateScaleDisplay(); };
