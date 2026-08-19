@@ -174,6 +174,7 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
 
     startTimerHz (60);
     updateScaleDisplay();
+    updateControlEnablement();
 
     setSize (820, 480 + Theme::topBarHeight + 6);
 
@@ -342,6 +343,8 @@ void TeArAudioProcessorEditor::changeListenerCallback (juce::ChangeBroadcaster*)
 
 void TeArAudioProcessorEditor::timerCallback()
 {
+    updateControlEnablement();
+
     const bool notesAreHeld = audioProcessor.areNotesHeld();
     int numArps = audioProcessor.getNumArpeggiators();
 
@@ -434,6 +437,29 @@ void TeArAudioProcessorEditor::timerCallback()
             lastStepIndices.set (selectedArpIndex, -1);
         }
     }
+}
+
+void TeArAudioProcessorEditor::updateControlEnablement()
+{
+    auto& apvts = audioProcessor.getAPVTS();
+
+    // The scale controls only do anything in "Single note" mode: that is the
+    // one branch of processBlock's switch that reads scaleType, scaleRoot or
+    // followMidiIn, and the one branch updateScaleDisplay draws a scale for.
+    const bool scaleMode = (int) apvts.getRawParameterValue ("chordMethod")->load() == 2;
+
+    // scaleRoot is superseded a second time by followMidiIn, which makes the
+    // played note the root and writes the parameter rather than reading it.
+    const bool followMidiIn = apvts.getRawParameterValue ("followMidiIn")->load() > 0.5f;
+    const bool rootIsLive   = scaleMode && ! followMidiIn;
+
+    // The labels are attached siblings, not children, so disabling a box does
+    // not carry to its label; they have to be set alongside it.
+    scaleTypeBox      .setEnabled (scaleMode);
+    scaleTypeLabel    .setEnabled (scaleMode);
+    followMidiInButton.setEnabled (scaleMode);
+    scaleRootBox      .setEnabled (rootIsLive);
+    scaleRootLabel    .setEnabled (rootIsLive);
 }
 
 void TeArAudioProcessorEditor::updateScaleDisplay()

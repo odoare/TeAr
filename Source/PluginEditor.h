@@ -64,6 +64,12 @@ private:
     };
 
     void rebuildArpUI();
+
+    /** Greys out the controls the current mode ignores. Polled from the timer
+        rather than driven from onChange, so that a parameter moved by host
+        automation greys them too. */
+    void updateControlEnablement();
+
     void selectArp (int index);
     void updateTabAppearance();
     void setPresetPanelVisible (bool shouldBeVisible);
