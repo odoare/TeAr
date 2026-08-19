@@ -10,12 +10,21 @@ Every path is relative to the repository root (`~/src/TeAr`).
 JUCE is not vendored. It is expected as a sibling directory, `../JUCE`, at tag
 `8.0.12` (the version the CI workflow checks out).
 
-Two git submodules live under `Source/libs`:
+One git submodule lives under `Source/libs`:
 
 | Path | Purpose |
 | --- | --- |
 | `Source/libs/FxmeTools` | The FX-Mechanics shared JUCE module. Holds the arpeggiator engine and the shared GUI components, and is the one that gets edited. |
-| `Source/libs/cppMusicTools` | Older vendored copy of the same engine. Not referenced by `CMakeLists.txt`, so it does not take part in the build. |
+
+There used to be a second, `Source/libs/cppMusicTools`, an older vendored copy
+of the same engine that took no part in the build. It was removed on
+2026-08-19. Nothing is lost by that: it remains its own repository at
+https://github.com/odoare/cppMusicTools, and the engine it held now lives in
+FxmeTools under `FxmeTools/midi/`.
+
+A clone made before that date keeps an empty `Source/libs/cppMusicTools`
+directory and a stale entry in `.git/config`. `git submodule sync` followed by
+a `git submodule update --init` tidies it, or simply delete the directory.
 
 After cloning, or after a pull that moved a submodule pointer:
 
