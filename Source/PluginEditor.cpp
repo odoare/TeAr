@@ -1,6 +1,22 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+namespace
+{
+    /** std::vector indexes with an unsigned type, while every index in this file
+        is an int that a caller has already bounds-checked. Converting in one
+        named place keeps the call sites readable and keeps the build free of
+        the sign-conversion warnings that used to drown out everything else.
+
+        The assertion is free in a release build and catches a negative index in
+        a debug one, which a bare (size_t) cast at each site would not. */
+    inline std::size_t asIndex (int i) noexcept
+    {
+        jassert (i >= 0);
+        return (std::size_t) i;
+    }
+}
+
 //==============================================================================
 TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p)
@@ -287,7 +303,7 @@ void TeArAudioProcessorEditor::rebuildArpUI()
     }
 
     // Make selected one visible
-    arpComponents[selectedArpIndex]->setVisible (true);
+    arpComponents[asIndex (selectedArpIndex)]->setVisible (true);
 
     updateTabAppearance();
     if (presetOverlay.isVisible())
@@ -300,9 +316,9 @@ void TeArAudioProcessorEditor::selectArp (int index)
 {
     if (!juce::isPositiveAndBelow (index, (int) arpComponents.size())) return;
     if (juce::isPositiveAndBelow (selectedArpIndex, (int) arpComponents.size()))
-        arpComponents[selectedArpIndex]->setVisible (false);
+        arpComponents[asIndex (selectedArpIndex)]->setVisible (false);
     selectedArpIndex = index;
-    arpComponents[selectedArpIndex]->setVisible (true);
+    arpComponents[asIndex (selectedArpIndex)]->setVisible (true);
     updateTabAppearance();
 }
 
@@ -314,11 +330,11 @@ void TeArAudioProcessorEditor::updateTabAppearance()
         const auto col  = getArpColour (i);
         const bool isOn = audioProcessor.isArpeggiatorOn (i);
 
-        Theme::arpTabToggle (*tabButtons[i], col, isOn);
-        tabButtons[i]->setToggleState (i == selectedArpIndex, juce::dontSendNotification);
+        Theme::arpTabToggle (*tabButtons[asIndex (i)], col, isOn);
+        tabButtons[asIndex (i)]->setToggleState (i == selectedArpIndex, juce::dontSendNotification);
 
         if (juce::isPositiveAndBelow (i, (int) arpComponents.size()))
-            arpComponents[i]->setOnState (isOn);
+            arpComponents[asIndex (i)]->setOnState (isOn);
     }
 
     removeArpButton.setEnabled (numArps > 1);
@@ -336,7 +352,7 @@ void TeArAudioProcessorEditor::changeListenerCallback (juce::ChangeBroadcaster*)
     {
         // Structure unchanged — just refresh patterns and tab appearance
         for (int i = 0; i < (int) arpComponents.size(); ++i)
-            arpComponents[i]->setText (audioProcessor.getArpeggiatorPattern (i), false);
+            arpComponents[asIndex (i)]->setText (audioProcessor.getArpeggiatorPattern (i), false);
         updateTabAppearance();
     }
 }
@@ -412,7 +428,7 @@ void TeArAudioProcessorEditor::timerCallback()
 
     if (juce::isPositiveAndBelow (selectedArpIndex, (int) arpComponents.size()))
     {
-        auto* comp = arpComponents[selectedArpIndex].get();
+        auto* comp = arpComponents[asIndex (selectedArpIndex)].get();
         bool canHighlight = notesAreHeld
                          && !comp->editorHasKeyboardFocus()
                          && audioProcessor.isArpeggiatorOn (selectedArpIndex);

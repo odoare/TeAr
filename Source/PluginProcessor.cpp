@@ -1,6 +1,22 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+namespace
+{
+    /** std::vector indexes with an unsigned type, while every index in this file
+        is an int that a caller has already bounds-checked. Converting in one
+        named place keeps the call sites readable and keeps the build free of
+        the sign-conversion warnings that used to drown out everything else.
+
+        The assertion is free in a release build and catches a negative index in
+        a debug one, which a bare (size_t) cast at each site would not. */
+    inline std::size_t asIndex (int i) noexcept
+    {
+        jassert (i >= 0);
+        return (std::size_t) i;
+    }
+}
+
 //==============================================================================
 TeArAudioProcessor::TeArAudioProcessor()
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -366,7 +382,7 @@ juce::ValueTree TeArAudioProcessor::buildArpsTree() const
     {
         juce::ValueTree arpTree ("Arp");
         arpTree.setProperty ("index",   i,               nullptr);
-        arpTree.setProperty ("pattern", arps[i].pattern, nullptr);
+        arpTree.setProperty ("pattern", arps[asIndex (i)].pattern, nullptr);
 
         // The on/off state is an automatable parameter, so the parameter wins
         // over the cached copy in the instance.
@@ -374,9 +390,9 @@ juce::ValueTree TeArAudioProcessor::buildArpsTree() const
                             ? apvts.getRawParameterValue ("arp" + juce::String (i) + "On")
                             : nullptr;
         arpTree.setProperty ("on", onParam ? (*onParam > 0.5f ? 1 : 0)
-                                           : (arps[i].onState ? 1 : 0), nullptr);
-        arpTree.setProperty ("midiChannel", arps[i].midiChannel, nullptr);
-        arpTree.setProperty ("subdivision", arps[i].subdivision, nullptr);
+                                           : (arps[asIndex (i)].onState ? 1 : 0), nullptr);
+        arpTree.setProperty ("midiChannel", arps[asIndex (i)].midiChannel, nullptr);
+        arpTree.setProperty ("subdivision", arps[asIndex (i)].subdivision, nullptr);
         tree.appendChild (arpTree, nullptr);
     }
 
@@ -430,7 +446,7 @@ void TeArAudioProcessor::syncArpOnStatesFromParameters()
 
     for (int i = 0; i < (int) arps.size() && i < MAX_ARPS; ++i)
         if (auto* val = apvts.getRawParameterValue ("arp" + juce::String (i) + "On"))
-            arps[i].onState = (*val > 0.5f);
+            arps[asIndex (i)].onState = (*val > 0.5f);
 }
 
 void TeArAudioProcessor::loadLegacyArps (const juce::XmlElement& xmlState)
@@ -577,16 +593,16 @@ void TeArAudioProcessor::setArpeggiatorPattern (int index, const juce::String& p
     {
         juce::ScopedLock lock (arpsLock);
         if (!juce::isPositiveAndBelow (index, (int) arps.size())) return;
-        arps[index].pattern = pattern;
-        arps[index].engine.setPattern (pattern);
+        arps[asIndex (index)].pattern = pattern;
+        arps[asIndex (index)].engine.setPattern (pattern);
 
-        if (!wasPlaying && arps[index].onState)
+        if (!wasPlaying && arps[asIndex (index)].onState)
         {
             double master = -1.0;
             for (int i = 0; i < (int) arps.size(); ++i)
-                if (i != index && arps[i].onState) { master = arps[i].engine.getSamplesUntilNextNote(); break; }
+                if (i != index && arps[asIndex (i)].onState) { master = arps[asIndex (i)].engine.getSamplesUntilNextNote(); break; }
             if (master >= 0.0)
-                arps[index].engine.setSamplesUntilNextNote (master);
+                arps[asIndex (index)].engine.setSamplesUntilNextNote (master);
         }
     }
     storeArpsInState();
@@ -605,7 +621,7 @@ juce::String TeArAudioProcessor::getArpeggiatorPattern (int index) const
     // original afterwards.
     juce::ScopedLock lock (arpsLock);
     if (juce::isPositiveAndBelow (index, (int) arps.size()))
-        return arps[index].pattern;
+        return arps[asIndex (index)].pattern;
     return {};
 }
 
@@ -614,8 +630,8 @@ void TeArAudioProcessor::randomizeArpeggiator (int index)
     {
         juce::ScopedLock lock (arpsLock);
         if (!juce::isPositiveAndBelow (index, (int) arps.size())) return;
-        arps[index].engine.randomize();
-        arps[index].pattern = arps[index].engine.getPattern();
+        arps[asIndex (index)].engine.randomize();
+        arps[asIndex (index)].pattern = arps[asIndex (index)].engine.getPattern();
     }
     storeArpsInState();
     sendChangeMessage();
@@ -633,7 +649,7 @@ bool TeArAudioProcessor::isArpeggiatorOn (int index) const
 {
     juce::ScopedLock lock (arpsLock);
     if (juce::isPositiveAndBelow (index, (int) arps.size()))
-        return arps[index].onState;
+        return arps[asIndex (index)].onState;
     return false;
 }
 
@@ -642,7 +658,7 @@ void TeArAudioProcessor::setArpeggiatorMidiChannel (int index, int channel)
     {
         juce::ScopedLock lock (arpsLock);
         if (!juce::isPositiveAndBelow (index, (int) arps.size())) return;
-        arps[index].midiChannel = juce::jlimit (1, 16, channel);
+        arps[asIndex (index)].midiChannel = juce::jlimit (1, 16, channel);
     }
     storeArpsInState();
 }
@@ -651,7 +667,7 @@ int TeArAudioProcessor::getArpeggiatorMidiChannel (int index) const
 {
     juce::ScopedLock lock (arpsLock);
     if (juce::isPositiveAndBelow (index, (int) arps.size()))
-        return arps[index].midiChannel;
+        return arps[asIndex (index)].midiChannel;
     return 1;
 }
 
@@ -660,8 +676,8 @@ void TeArAudioProcessor::setArpeggiatorSubdivision (int index, int subdivIndex)
     {
         juce::ScopedLock lock (arpsLock);
         if (!juce::isPositiveAndBelow (index, (int) arps.size())) return;
-        arps[index].subdivision = subdivIndex;
-        arps[index].engine.setSubdivision (subdivIndex);
+        arps[asIndex (index)].subdivision = subdivIndex;
+        arps[asIndex (index)].engine.setSubdivision (subdivIndex);
     }
     storeArpsInState();
 }
@@ -670,7 +686,7 @@ int TeArAudioProcessor::getArpeggiatorSubdivision (int index) const
 {
     juce::ScopedLock lock (arpsLock);
     if (juce::isPositiveAndBelow (index, (int) arps.size()))
-        return arps[index].subdivision;
+        return arps[asIndex (index)].subdivision;
     return 4;
 }
 
@@ -678,21 +694,21 @@ int TeArAudioProcessor::getArpeggiatorCurrentStep (int index) const
 {
     // No lock: acceptable minor race for visual feedback only
     if (juce::isPositiveAndBelow (index, (int) arps.size()))
-        return arps[index].engine.getCurrentStepIndex();
+        return arps[asIndex (index)].engine.getCurrentStepIndex();
     return 0;
 }
 
 const fxme::Arpeggiator& TeArAudioProcessor::getArpeggiator (int index) const
 {
     // No lock: acceptable minor race for visual feedback only
-    return arps[index].engine;
+    return arps[asIndex (index)].engine;
 }
 
 juce::uint32 TeArAudioProcessor::getArpeggiatorNoteOnCount (int index) const
 {
     juce::ScopedLock lock (arpsLock);
     if (juce::isPositiveAndBelow (index, (int) arps.size()))
-        return arps[index].engine.getNoteOnCount();
+        return arps[asIndex (index)].engine.getNoteOnCount();
     return 0;
 }
 
@@ -735,14 +751,14 @@ void TeArAudioProcessor::parameterChanged (const juce::String& parameterID, floa
                 juce::ScopedLock lock (arpsLock);
                 if (!juce::isPositiveAndBelow (i, (int) arps.size())) return;
                 bool on = (newValue > 0.5f);
-                arps[i].onState = on;
+                arps[asIndex (i)].onState = on;
                 if (on && !wasPlaying)
                 {
                     double master = -1.0;
                     for (int j = 0; j < (int) arps.size(); ++j)
-                        if (j != i && arps[j].onState) { master = arps[j].engine.getSamplesUntilNextNote(); break; }
+                        if (j != i && arps[asIndex (j)].onState) { master = arps[asIndex (j)].engine.getSamplesUntilNextNote(); break; }
                     if (master >= 0.0)
-                        arps[i].engine.setSamplesUntilNextNote (master);
+                        arps[asIndex (i)].engine.setSamplesUntilNextNote (master);
                 }
             }
             sendChangeMessage();
