@@ -11,7 +11,6 @@
 #include <FxmeTools/components/TextEntryFocusFixer.h>
 #include <FxmeTools/components/TopBar.h>
 #include "PluginProcessor.h"
-#include "ArpLookAndFeel.h"
 #include "ArpeggiatorComponent.h"
 #include "Theme.h"
 #include "popupWindow.h"
@@ -79,7 +78,6 @@ private:
 
     TeArAudioProcessor& audioProcessor;
 
-    ArpLookAndFeel        arpLAF;
     fxme::FxmeLookAndFeel fxmeLAF;
 
     // --- FX-Mechanics chrome ---

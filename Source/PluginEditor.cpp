@@ -182,7 +182,8 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     addAndMakeVisible (chordMethodLabel);
     chordMethodLabel.setText ("Method", juce::dontSendNotification);
     chordMethodLabel.attachToComponent (&chordMethodBox, true);
-    chordMethodLabel.setLookAndFeel (&arpLAF);
+    chordMethodLabel.setLookAndFeel (&fxmeLAF);
+    chordMethodLabel.setFont (juce::Font (juce::FontOptions (15.0f)));
     chordMethodLabel.setColour (juce::Label::textColourId, neutral);
 
     addAndMakeVisible (chordMethodBox);
@@ -199,7 +200,8 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     addAndMakeVisible (scaleRootLabel);
     scaleRootLabel.setText ("Scale Root", juce::dontSendNotification);
     scaleRootLabel.attachToComponent (&scaleRootBox, true);
-    scaleRootLabel.setLookAndFeel (&arpLAF);
+    scaleRootLabel.setLookAndFeel (&fxmeLAF);
+    scaleRootLabel.setFont (juce::Font (juce::FontOptions (15.0f)));
     scaleRootLabel.setColour (juce::Label::textColourId, neutral);
 
     addAndMakeVisible (scaleRootBox);
@@ -216,7 +218,8 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     addAndMakeVisible (scaleTypeLabel);
     scaleTypeLabel.setText ("Scale Type", juce::dontSendNotification);
     scaleTypeLabel.attachToComponent (&scaleTypeBox, true);
-    scaleTypeLabel.setLookAndFeel (&arpLAF);
+    scaleTypeLabel.setLookAndFeel (&fxmeLAF);
+    scaleTypeLabel.setFont (juce::Font (juce::FontOptions (15.0f)));
     scaleTypeLabel.setColour (juce::Label::textColourId, neutral);
 
     addAndMakeVisible (scaleTypeBox);

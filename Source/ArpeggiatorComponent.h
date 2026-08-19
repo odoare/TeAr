@@ -64,10 +64,11 @@ private:
     // Both declared before the widgets that point at them, so they outlive
     // them under reverse-declaration-order destruction.
     //
-    // Two look-and-feels rather than one: FxmeLookAndFeel draws the combo
-    // boxes and their menus in the house style, but overrides neither
+    // Two look-and-feels rather than one: FxmeLookAndFeel draws the combo box,
+    // its menu and the label in the house style, but overrides neither
     // fillTextEditorBackground nor drawTextEditorOutline, which are what give
-    // the pattern field its rounded dark box. ArpLookAndFeel stays for that.
+    // the pattern field its rounded dark box. ArpLookAndFeel is now down to
+    // exactly those two overrides, and exists only for this one text editor.
     //
     // One FxmeLookAndFeel per ArpeggiatorComponent, not one shared: a menu is
     // its own window and takes its highlight from the look-and-feel that opened

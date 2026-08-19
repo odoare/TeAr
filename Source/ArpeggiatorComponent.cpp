@@ -41,7 +41,8 @@ ArpeggiatorComponent::ArpeggiatorComponent()
 
     addAndMakeVisible (midiChannelLabel);
     midiChannelLabel.setText ("Ch", juce::dontSendNotification);
-    midiChannelLabel.setLookAndFeel (&laf);
+    midiChannelLabel.setLookAndFeel (&fxmeLAF);
+    midiChannelLabel.setFont (juce::Font (juce::FontOptions (15.0f)));
     midiChannelLabel.setJustificationType (juce::Justification::centredRight);
 
     addAndMakeVisible (midiChannelBox);
