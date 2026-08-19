@@ -4,6 +4,7 @@
 #include <FxmeTools/components/AccentToggle.h>
 #include <FxmeTools/components/FxmeButton.h>
 #include <FxmeTools/components/InfoButton.h>
+#include <FxmeTools/components/ScaleKeyboardComponent.h>
 #include <FxmeTools/components/PresetBarComponent.h>
 #include <FxmeTools/components/PresetComponent.h>
 #include <FxmeTools/components/SplashOverlay.h>
@@ -12,7 +13,6 @@
 #include "PluginProcessor.h"
 #include "ArpLookAndFeel.h"
 #include "ArpeggiatorComponent.h"
-#include "KeyboardComponent.h"
 #include "Theme.h"
 #include "popupWindow.h"
 
@@ -125,7 +125,7 @@ private:
     fxme::FxmeButton followMidiInButton { audioProcessor.getAPVTS(), "followMidiIn",
                                           "Follow MIDI In", juce::Colours::white };
 
-    KeyboardComponent      keyboardComponent;
+    fxme::ScaleKeyboardComponent keyboardComponent;
     fxme::MidiTools::Scale currentDisplayScale { 0, fxme::MidiTools::Scale::Type::Major };
     juce::Array<int>       lastStepIndices;
     int                    lastPlayedArpNote { -1 };

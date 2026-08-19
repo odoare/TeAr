@@ -65,7 +65,6 @@ target_sources(TeAr PRIVATE
     Source/PluginEditor.cpp
     Source/ArpeggiatorComponent.cpp
     Source/popupWindow.cpp
-    Source/KeyboardComponent.cpp
 )
 
 target_include_directories(TeAr PRIVATE Source)

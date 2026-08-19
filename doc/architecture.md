@@ -40,13 +40,18 @@ Source/
   Theme.h                   colours, geometry, the identity ramp
   ArpInstance.h             one arpeggiator's data + getArpColour()
   ArpeggiatorComponent.*    one arpeggiator's panel (text, ON, duration, channel)
-  KeyboardComponent.*       the keyboard along the bottom
-  ArpLookAndFeel.h          look-and-feel for the pattern text editor and combos
+  ArpLookAndFeel.h          look-and-feel for the pattern text editor
   popupWindow.*             the current (small) pattern generator callout
   libs/FxmeTools/           submodule, shared across all FX-Mechanics plugins
 tools/check-macos-artifact.sh   verifies a downloaded macOS release from Linux
 doc/architecture.md         this file
 ```
+
+The keyboard strip along the bottom is not in this list any more: it moved into
+FxmeTools on 2026-08-19 as `fxme::ScaleKeyboardComponent`, since nothing in it
+was specific to TeAr once the arpeggiator palette was replaced by a colour
+callback. The editor sets that callback to `getArpColour` and otherwise uses it
+as it did before.
 
 CMake is the only build system. The Projucer file was deleted in 0.4.0: it had
 not been part of the build for some time, still declared version 0.2, and

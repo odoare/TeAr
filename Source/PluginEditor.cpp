@@ -239,6 +239,10 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     // hover and disabled states that go with it.
     followMidiInButton.setLookAndFeel (&fxmeLAF);
 
+    // The keyboard is a generic fxme component and knows nothing about
+    // arpeggiators: it hands back the voice index it was given and asks what
+    // colour that is.
+    keyboardComponent.colourForVoice = [] (int voice) { return getArpColour (voice); };
     addAndMakeVisible (keyboardComponent);
 
     // Last of the permanent children, so the glow stacks over the header and
@@ -458,29 +462,24 @@ void TeArAudioProcessorEditor::timerCallback()
         juce::Array<int> inputNotes = audioProcessor.getHeldNotes();
 
         // Playing output notes → arp-colour fill
-        juce::Array<juce::var> currentNotes;
+        juce::Array<fxme::ScaleKeyboardComponent::PlayingNote> currentNotes;
         for (int i = 0; i < numArps; ++i)
         {
             if (audioProcessor.isArpeggiatorOn (i))
             {
-                int note = audioProcessor.getArpeggiator (i).getLastPlayedNote();
+                const int note = audioProcessor.getArpeggiator (i).getLastPlayedNote();
                 if (note != -1)
-                {
-                    auto* obj = new juce::DynamicObject();
-                    obj->setProperty ("note",     note);
-                    obj->setProperty ("arpIndex", i);
-                    currentNotes.add (juce::var (obj));
-                }
+                    currentNotes.add ({ note, i });
             }
         }
 
         // Scale notes → gray dimming of non-scale keys (scale mode only)
         if (chordMethod == 2)
-            keyboardComponent.updateScale (currentDisplayScale.getNotes(),
-                                           currentDisplayScale.getRootNote(),
-                                           currentNotes, inputNotes);
+            keyboardComponent.update (currentDisplayScale.getNotes(),
+                                      currentDisplayScale.getRootNote(),
+                                      currentNotes, inputNotes);
         else
-            keyboardComponent.updateScale ({}, -1, currentNotes, inputNotes);
+            keyboardComponent.update ({}, -1, currentNotes, inputNotes);
     }
     else
     {
@@ -550,11 +549,12 @@ void TeArAudioProcessorEditor::updateScaleDisplay()
         auto scaleType = static_cast<fxme::MidiTools::Scale::Type> (
             (int) apvts.getRawParameterValue ("scaleType")->load());
         currentDisplayScale = fxme::MidiTools::Scale (scaleRoot, scaleType);
-        keyboardComponent.updateScale (currentDisplayScale.getNotes(), currentDisplayScale.getRootNote(), {});
+        keyboardComponent.update (currentDisplayScale.getNotes(),
+                                  currentDisplayScale.getRootNote(), {});
     }
     else
     {
-        keyboardComponent.updateScale ({}, -1, {});
+        keyboardComponent.update ({}, -1, {});
     }
 
     lastPlayedArpNote = -1;
