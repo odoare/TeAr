@@ -780,7 +780,9 @@ juce::AudioProcessorValueTreeState::ParameterLayout TeArAudioProcessor::createPa
         juce::StringArray { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" }, 0));
 
     layout.add (std::make_unique<juce::AudioParameterChoice> (
-        "scaleType", "Scale Type", fxme::MidiTools::Scale::getScaleTypeNames(), 0));
+        "scaleType", "Scale Type",
+        juce::StringArray (fxme::MidiTools::Scale::scaleTypeNames,
+                           fxme::MidiTools::Scale::numScaleTypes), 0));
 
     layout.add (std::make_unique<juce::AudioParameterBool> (
         "followMidiIn", "Follow MIDI In", false));
