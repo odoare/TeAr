@@ -7,14 +7,18 @@ Every path is relative to the repository root (`~/src/TeAr`).
 
 ## Repository layout
 
-JUCE is not vendored. It is expected as a sibling directory, `../JUCE`, at tag
-`8.0.12` (the version the CI workflow checks out).
-
-One git submodule lives under `Source/libs`:
+Nothing is vendored and there are no git submodules. JUCE (9.0.4),
+FxmeTools and clap-juce-extensions are pinned in `cmake/Dependencies.cmake` and
+resolved by `cmake/FxmeDeps.cmake`: a sibling clone is used when there is one
+(`../JUCE`, `../FxmeTools`, `../clap-juce-extensions`, the last one optional),
+otherwise CMake fetches the pinned commit (FetchContent). That is controlled by
+`FXME_USE_SIBLINGS` (ON by default); release builds, CI included, configure
+with `-DFXME_USE_SIBLINGS=OFF`. The configure output says where each
+dependency came from.
 
 | Path | Purpose |
 | --- | --- |
-| `Source/libs/FxmeTools` | The FX-Mechanics shared JUCE module. Holds the arpeggiator engine and the shared GUI components, and is the one that gets edited. |
+| `../FxmeTools` | The FX-Mechanics shared JUCE module. Holds the arpeggiator engine and the shared GUI components, and is the one that gets edited. |
 
 There used to be a second, `Source/libs/cppMusicTools`, an older vendored copy
 of the same engine that took no part in the build. It was removed on
@@ -23,19 +27,13 @@ https://github.com/odoare/cppMusicTools, and the engine it held now lives in
 FxmeTools under `FxmeTools/midi/`.
 
 A clone made before that date keeps an empty `Source/libs/cppMusicTools`
-directory and a stale entry in `.git/config`. `git submodule sync` followed by
-a `git submodule update --init` tidies it, or simply delete the directory.
-
-After cloning, or after a pull that moved a submodule pointer:
-
-```bash
-git submodule update --init --recursive
-```
+directory, which can simply be deleted. The same goes for an empty
+`Source/libs/FxmeTools` left over from the submodule days.
 
 Cloning fresh:
 
 ```bash
-git clone --recurse-submodules https://github.com/odoare/TeAr
+git clone https://github.com/odoare/TeAr
 ```
 
 ## Building the plugin
@@ -52,7 +50,7 @@ Then build a single format rather than everything:
 cmake --build build --target TeAr_VST3 -j2
 ```
 
-Useful targets: `TeAr_VST3`, `TeAr_AU` (macOS only), `TeAr_All`,
+Useful targets: `TeAr_VST3`, `TeAr_AU` (macOS only), `TeAr_CLAP`, `TeAr_All`,
 `TeArBinaryData` (the images and factory presets blob).
 
 Do not use `-j$(nproc)`. A Release build links with LTO
@@ -84,6 +82,7 @@ Bundle paths for the other formats:
 ```
 build/TeAr_artefacts/Release/VST3/TeAr.vst3
 build/TeAr_artefacts/Release/AU/TeAr.component        # macOS only
+build/TeAr_artefacts/Release/CLAP/TeAr.clap
 ```
 
 ## Unit tests
@@ -94,7 +93,7 @@ disturb the Release plugin build.
 ```bash
 cmake -B build_tests -S . -DCMAKE_BUILD_TYPE=Debug -DTEAR_BUILD_TESTS=ON
 cmake --build build_tests --target FxmeToolsTests -j2
-build_tests/Source/libs/FxmeTools/tests/FxmeToolsTests_artefacts/Debug/FxmeToolsTests
+build_tests/FxmeToolsTests/FxmeToolsTests_artefacts/Debug/FxmeToolsTests
 ```
 
 The last line runs the doctest binary directly, which prints per-assertion
@@ -107,12 +106,12 @@ ctest --test-dir build_tests --output-on-failure
 Running one case while working on it:
 
 ```bash
-BIN=build_tests/Source/libs/FxmeTools/tests/FxmeToolsTests_artefacts/Debug/FxmeToolsTests
+BIN=build_tests/FxmeToolsTests/FxmeToolsTests_artefacts/Debug/FxmeToolsTests
 $BIN --list-test-cases
 $BIN -tc="closing a block hands velocity back to the played note"
 ```
 
-There is also `Source/libs/FxmeTools/tests/run_tests.sh`, which configures,
+There is also `../FxmeTools/tests/run_tests.sh`, which configures,
 builds and runs in one go. Note that it builds with an uncapped `--parallel`;
 prefer the explicit commands above.
 
@@ -120,46 +119,24 @@ A test that passes proves nothing until it has been seen to fail. When adding a
 regression test, reintroduce the bug it targets, confirm that exact test fails,
 then restore.
 
-## Git with the submodule
+## Editing FxmeTools
 
-Work in `Source/libs/FxmeTools` is a separate repository. The parent only
-records which commit of it to use, so a change there always means two commits.
-
-Seeing what changed on both sides:
-
-```bash
-git status --short                      # ' m ' on the submodule = its contents changed
-                                        # ' M ' on the submodule = the recorded commit changed
-git diff --submodule=diff               # parent diff, with submodule changes inlined
-git -C Source/libs/FxmeTools status --short
-git -C Source/libs/FxmeTools diff
-```
-
-Committing, submodule first:
+FxmeTools is its own repository, cloned next to this one as `../FxmeTools`.
+Edit and commit there directly; TeAr only records which commit to use, as the
+pin in `cmake/Dependencies.cmake`. A local build uses the sibling clone as it
+is (the configure output prints its commit and whether it is dirty), so a change
+there is picked up without touching TeAr.
 
 ```bash
-git -C Source/libs/FxmeTools add -A
-git -C Source/libs/FxmeTools commit -m "..."
-git -C Source/libs/FxmeTools push
+git -C ../FxmeTools status --short
+git -C ../FxmeTools add -A
+git -C ../FxmeTools commit -m "..."
+git -C ../FxmeTools push
 ```
 
-Then the parent, whose commit records the new pointer:
-
-```bash
-git add Source/libs/FxmeTools <other changed files>
-git commit -m "..."
-git push
-```
-
-Pushing the parent before the submodule leaves a pointer to a commit nobody
-else can fetch, and CI (which checks out with `submodules: recursive`) fails.
-
-Checking the pointer is not stale:
-
-```bash
-git submodule status                    # a leading '+' means the checkout differs
-                                        # from the commit the parent records
-```
+Then bump the SHA in `cmake/Dependencies.cmake` and commit that in TeAr. Push
+FxmeTools first: CI and release builds use `-DFXME_USE_SIBLINGS=OFF`, so a pin
+on a commit nobody can fetch fails there.
 
 ## Releasing
 
@@ -228,7 +205,7 @@ in place of Apple's tools.
 ```bash
 sudo apt install llvm                            # once, for llvm-lipo
 gh run download <run-id> -n macos-vst3
-tools/check-macos-artifact.sh TeAr-VST3-macOS-universal.zip
+tools/check-macos-artifact.sh TeAr-macOS-universal.zip
 ```
 
 It exits non-zero if a slice is missing, so it can be trusted in a pipeline.

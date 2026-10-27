@@ -34,6 +34,10 @@ with its own pattern, step duration, MIDI output channel and on/off state.
 
 ```
 CMakeLists.txt              project(TeAr VERSION 0.4.2) is the single version source
+                            formats VST3 / AU / CLAP; CLAP ID com.fx-mechanics.TeAr,
+                            features note-effect stereo
+cmake/Dependencies.cmake    pins: JUCE 9.0.4, FxmeTools, clap-juce-extensions
+cmake/FxmeDeps.cmake        sibling clone (../JUCE, ../FxmeTools, ...) or pinned commit
 Source/
   PluginProcessor.{h,cpp}   APVTS, the arpeggiator vector, state, presets
   PluginEditor.{h,cpp}      the whole GUI
@@ -42,7 +46,6 @@ Source/
   ArpeggiatorComponent.*    one arpeggiator's panel (text, ON, duration, channel)
   ArpLookAndFeel.h          look-and-feel for the pattern text editor
   popupWindow.*             the current (small) pattern generator callout
-  libs/FxmeTools/           submodule, shared across all FX-Mechanics plugins
 tools/check-macos-artifact.sh   verifies a downloaded macOS release from Linux
 doc/architecture.md         this file
 ```
@@ -196,13 +199,14 @@ The chrome accent is cyan, the middle of the ramp.
 `AccentToggle`, `TextEntryFocusFixer`, `FxmeLookAndFeel`, and the engine
 itself (`midi/Arpeggiator.h`, `midi/MidiTools.h`).
 
-The submodule is shared with every other FX-Mechanics plugin, so changes there
-are changes to a shared library: keep the public API backward compatible, and
-commit the submodule before bumping the pointer in the parent.
+FxmeTools (a sibling clone `../FxmeTools`, or the commit pinned in
+`cmake/Dependencies.cmake`; see `doc/development.md`) is shared with every other
+FX-Mechanics plugin, so changes there are changes to a shared library: keep the
+public API backward compatible, and push it before bumping the pin in TeAr.
 
 `Arpeggiator.h` carries the unit tests that matter most here
-(`libs/FxmeTools/tests/test_arpeggiator.cpp`, 36 cases). Run them with
-`Source/libs/FxmeTools/tests/run_tests.sh`, or configure with
+(`FxmeTools/tests/test_arpeggiator.cpp`, 36 cases). Run them with
+`../FxmeTools/tests/run_tests.sh`, or configure with
 `-DTEAR_BUILD_TESTS=ON` and `ctest -R ArpeggiatorTests`. Note that
 `build_tests/` may still hold a stale `cppMusicToolsTests` binary from an
 earlier layout; the current one is `FxmeToolsTests`.
@@ -302,8 +306,8 @@ skips it silently. That is what the `xattr -dr com.apple.quarantine` section in
   build is genuinely necessary, never `-j$(nproc)` (Release links with LTO):
   use `-j2` and one named target.
 - Do not commit or push. When work spans both repositories, say precisely what
-  to commit where, submodule first.
-- Builds do not auto-install. The `.vst3` has to be copied and the DAW has to
+  to commit where, FxmeTools first.
+- Builds do not auto-install. The `.vst3` (or `.clap`) has to be copied and the DAW has to
   rescan, because it caches the module.
 - Documentation is plain prose, emphasis used sparingly, parentheses preferred
   over dashes.

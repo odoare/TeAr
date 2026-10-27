@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Verify a macOS release artifact from Linux, without a Mac.
 #
-# Usage:  tools/check-macos-artifact.sh TeAr-VST3-macOS-universal.zip [more.zip ...]
+# Usage:  tools/check-macos-artifact.sh TeAr-macOS-universal.zip [more.zip ...]
 #         tools/check-macos-artifact.sh path/to/TeAr.vst3
 #
 # Checks every Mach-O executable found inside each argument for both the

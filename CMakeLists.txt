@@ -19,12 +19,10 @@ project(TeAr VERSION 0.4.2)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# JUCE is expected as a sibling directory: ../JUCE
-add_subdirectory(../JUCE JUCE)
-
-# FX-Mechanics shared tools (JUCE module), vendored as a git submodule.
-# Registers the `FxmeTools` module target.
-include(${CMAKE_CURRENT_SOURCE_DIR}/Source/libs/FxmeTools/cmake/FxmeTools.cmake)
+# JUCE, FxmeTools and clap-juce-extensions: sibling clones (../JUCE, ...) or
+# pinned commits; sets JUCE_DIR and FXMETOOLS_DIR, adds JUCE and includes
+# FxmeTools.cmake (the module, FxmeCore, fxmetools_add_clap()).
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/Dependencies.cmake)
 
 juce_add_plugin(TeAr
     COMPANY_NAME                "FX-Mechanics"
@@ -41,6 +39,13 @@ juce_add_plugin(TeAr
     VST3_CATEGORIES             "Instrument|Synth"
     BUNDLE_ID                   "com.fx-mechanics.TeAr"
 )
+
+# CLAP format through clap-juce-extensions (TeAr_CLAP, built by TeAr_All; see
+# fxmetools_add_clap in FxmeTools.cmake). The ID is permanent once released.
+# TeAr generates notes and passes its stereo audio through.
+fxmetools_add_clap(TeAr
+    ID       "com.fx-mechanics.TeAr"
+    FEATURES note-effect stereo)
 
 # Images and factory presets share one blob. PresetManager keeps every embedded
 # "*_xml" resource whose root tag matches the APVTS state type ("Parameters")
@@ -105,10 +110,11 @@ target_link_libraries(TeAr
 # ---------------------------------------------------------------------------
 # Unit tests for the FxmeTools arpeggiator engine (opt-in, off by default)
 # Build with: cmake -DTEAR_BUILD_TESTS=ON ...
-# Run with:   Source/libs/FxmeTools/tests/run_tests.sh
+# Run with:   ctest --test-dir <build> (or ../FxmeTools/tests/run_tests.sh)
 # ---------------------------------------------------------------------------
 option(TEAR_BUILD_TESTS "Build FxmeTools unit tests" OFF)
 if(TEAR_BUILD_TESTS)
     enable_testing()  # must be in the top-level CMakeLists for CTest to discover tests
-    add_subdirectory(Source/libs/FxmeTools/tests)
+    # Out-of-tree source dir: it needs an explicit binary dir.
+    add_subdirectory(${FXMETOOLS_DIR}/tests FxmeToolsTests)
 endif()

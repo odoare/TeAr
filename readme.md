@@ -211,17 +211,18 @@ TeAr is free software and is not signed with an Apple Developer ID (that is a pa
 Using the installer:
 
 1. Download `TeAr-macOS.pkg`. macOS will refuse to open it on a double-click, so right-click it and choose **Open**, then confirm.
-2. Run the installer (it puts the VST3 in `/Library/Audio/Plug-Ins/VST3` and the AU in `/Library/Audio/Plug-Ins/Components`).
+2. Run the installer (it puts the VST3 in `/Library/Audio/Plug-Ins/VST3`, the AU in `/Library/Audio/Plug-Ins/Components` and the CLAP in `/Library/Audio/Plug-Ins/CLAP`).
 3. Open Terminal and run:
 
    ```sh
    xattr -dr com.apple.quarantine /Library/Audio/Plug-Ins/VST3/TeAr.vst3
    xattr -dr com.apple.quarantine /Library/Audio/Plug-Ins/Components/TeAr.component
+   xattr -dr com.apple.quarantine /Library/Audio/Plug-Ins/CLAP/TeAr.clap
    ```
 
 4. Restart your DAW. Logic Pro users may need to trigger a rescan in **Plug-in Manager**.
 
-Using the zips instead: download `TeAr-VST3-macOS-universal.zip` and/or `TeAr-AU-macOS-universal.zip`, copy `TeAr.vst3` to `/Library/Audio/Plug-Ins/VST3` and `TeAr.component` to `/Library/Audio/Plug-Ins/Components` (or the same paths under `~/Library` for a single user), then run the same `xattr` commands above on the files you copied and restart your DAW.
+Using the zips instead: download `TeAr-macOS-universal.zip` (it holds `VST3/`, `AU/` and `CLAP/`), copy `TeAr.vst3` to `/Library/Audio/Plug-Ins/VST3` and `TeAr.component` to `/Library/Audio/Plug-Ins/Components` (or the same paths under `~/Library` for a single user), then run the same `xattr` commands above on the files you copied and restart your DAW. `TeAr.clap` goes to `/Library/Audio/Plug-Ins/CLAP`.
 
 If TeAr still does not appear after clearing quarantine, that is a real bug rather than a signing problem, so please open an issue.
 
@@ -243,39 +244,41 @@ If TeAr still does not appear after clearing quarantine, that is a real bug rath
 
 ### Windows
 
-1. Download `TeAr-VST3-Windows-x86_64.zip`.
+1. Download `TeAr-Windows-x86_64.zip`.
 2. Unzip and copy the `TeAr.vst3` directory to `C:\Program Files\Common Files\VST3`.
 3. Rescan VST3 plugins in your DAW (in Reaper: **Options → Preferences → Plug-ins → VST → Re-scan**).
 
+For CLAP, copy `TeAr.clap` from the same zip to `C:\Program Files\Common Files\CLAP` instead and rescan CLAP plugins.
+
 ### Linux
 
-1. Download `TeAr-VST3-Linux-x86_64.zip` (Intel/AMD) or `TeAr-VST3-Linux-arm64.zip` (ARM).
+1. Download `TeAr-Linux-x86_64.zip` (Intel/AMD) or `TeAr-Linux-arm64.zip` (ARM).
 2. Unzip and copy the `TeAr.vst3` directory to `~/.vst3/`.
 3. Rescan VST3 plugins in your DAW (in Reaper: **Options → Preferences → Plug-ins → VST → Re-scan**).
+
+For CLAP, copy `TeAr.clap` from the same zip to `~/.clap/` instead and rescan CLAP plugins.
 
 ---
 
 ## Building from Source
 
-This project uses CMake. JUCE and the FxmeJuceTools module are expected as sibling directories.
+This project uses CMake. Formats: VST3, AU (macOS) and CLAP. JUCE 9.0.4, FxmeTools and clap-juce-extensions are pinned in `cmake/Dependencies.cmake`. CMake uses a sibling clone when there is one (`../JUCE`, `../FxmeTools`, `../clap-juce-extensions`) and otherwise fetches the pinned commit; the configure output says which, for each dependency. Pass `-DFXME_USE_SIBLINGS=OFF` to always build from the pins (releases do).
 
 1.  **Clone the Repository**
 
     ```bash
-    git clone --recursive https://github.com/odoare/TeAr.git
+    git clone https://github.com/odoare/TeAr.git
     cd TeAr
     ```
 
-2.  **Set up dependencies** (one-time, in the parent directory)
+2.  **Set up dependencies** (optional: skip it and CMake fetches the pinned versions; one-time, in the parent directory)
 
     ```bash
     # JUCE
-    git clone --branch 8.0.12 https://github.com/juce-framework/JUCE.git ../JUCE
+    git clone --branch 9.0.4 https://github.com/juce-framework/JUCE.git ../JUCE
 
-    # FxmeJuceTools custom module
-    git clone https://github.com/odoare/FxmeJuceTools.git ../FxmeJuceTools_repo
-    mkdir -p ../JUCE/usermodules
-    ln -s $(pwd)/../FxmeJuceTools_repo/module/FxmeJuceTools ../JUCE/usermodules/FxmeJuceTools
+    # FxmeTools (shared FX-Mechanics module)
+    git clone https://github.com/odoare/FxmeTools.git ../FxmeTools
     ```
 
 3.  **Configure and build**
@@ -285,7 +288,7 @@ This project uses CMake. JUCE and the FxmeJuceTools module are expected as sibli
     cmake --build build --config Release --parallel
     ```
 
-    The built plugin will be in `build/TeAr_artefacts/Release/`.
+    The built plugins will be in `build/TeAr_artefacts/Release/` (`VST3/`, `AU/` on macOS, `CLAP/`).
 
 ---
 

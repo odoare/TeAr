@@ -17,6 +17,9 @@ on:
   # So the builds and the verify step can be exercised without publishing.
   workflow_dispatch:
 
+# JUCE, FxmeTools and clap-juce-extensions are fetched by CMake at the commits
+# pinned in cmake/Dependencies.cmake; -DFXME_USE_SIBLINGS=OFF makes sure of it.
+
 jobs:
   # ── Linux x86_64 ──────────────────────────────────────────────────────────
   build-linux-x86_64:
@@ -27,33 +30,27 @@ jobs:
           sudo apt update
           sudo apt install -y \
             libasound2-dev libx11-dev libxrandr-dev libxinerama-dev \
-            libxcursor-dev libfreetype-dev libfontconfig1-dev libgl1-mesa-dev
+            libxcursor-dev libfreetype-dev libfontconfig1-dev libgl1-mesa-dev \
+            libxi-dev libegl-dev    # JUCE 9: XInput2 (multi-touch), EGL (OpenGL)
 
       - uses: actions/checkout@v4
         with:
           path: TeAr
-          submodules: recursive
-
-      - uses: actions/checkout@v4
-        with:
-          repository: juce-framework/JUCE
-          ref: 8.0.12
-          path: JUCE
 
       - name: Configure & Build
         run: |
-          cmake -B TeAr/build -S TeAr -DCMAKE_BUILD_TYPE=Release
+          cmake -B TeAr/build -S TeAr -DCMAKE_BUILD_TYPE=Release -DFXME_USE_SIBLINGS=OFF
           cmake --build TeAr/build --config Release --parallel
 
       - name: Package
         run: |
           cd TeAr/build/TeAr_artefacts/Release
-          zip -r ${{ github.workspace }}/TeAr-VST3-Linux-x86_64.zip VST3/
+          zip -r ${{ github.workspace }}/TeAr-Linux-x86_64.zip VST3/ CLAP/
 
       - uses: actions/upload-artifact@v4
         with:
           name: linux-x86_64
-          path: TeAr-VST3-Linux-x86_64.zip
+          path: TeAr-Linux-x86_64.zip
 
   # ── Linux arm64 ───────────────────────────────────────────────────────────
   build-linux-arm64:
@@ -64,33 +61,27 @@ jobs:
           sudo apt update
           sudo apt install -y \
             libasound2-dev libx11-dev libxrandr-dev libxinerama-dev \
-            libxcursor-dev libfreetype-dev libfontconfig1-dev libgl1-mesa-dev
+            libxcursor-dev libfreetype-dev libfontconfig1-dev libgl1-mesa-dev \
+            libxi-dev libegl-dev    # JUCE 9: XInput2 (multi-touch), EGL (OpenGL)
 
       - uses: actions/checkout@v4
         with:
           path: TeAr
-          submodules: recursive
-
-      - uses: actions/checkout@v4
-        with:
-          repository: juce-framework/JUCE
-          ref: 8.0.12
-          path: JUCE
 
       - name: Configure & Build
         run: |
-          cmake -B TeAr/build -S TeAr -DCMAKE_BUILD_TYPE=Release
+          cmake -B TeAr/build -S TeAr -DCMAKE_BUILD_TYPE=Release -DFXME_USE_SIBLINGS=OFF
           cmake --build TeAr/build --config Release --parallel
 
       - name: Package
         run: |
           cd TeAr/build/TeAr_artefacts/Release
-          zip -r ${{ github.workspace }}/TeAr-VST3-Linux-arm64.zip VST3/
+          zip -r ${{ github.workspace }}/TeAr-Linux-arm64.zip VST3/ CLAP/
 
       - uses: actions/upload-artifact@v4
         with:
           name: linux-arm64
-          path: TeAr-VST3-Linux-arm64.zip
+          path: TeAr-Linux-arm64.zip
 
   # ── Windows x86_64 ────────────────────────────────────────────────────────
   build-windows:
@@ -99,30 +90,23 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: TeAr
-          submodules: recursive
-
-      - uses: actions/checkout@v4
-        with:
-          repository: juce-framework/JUCE
-          ref: 8.0.12
-          path: JUCE
 
       - name: Configure & Build
         run: |
-          cmake -B TeAr/build -S TeAr
+          cmake -B TeAr/build -S TeAr -DFXME_USE_SIBLINGS=OFF
           cmake --build TeAr/build --config Release --parallel
 
-      - name: Package raw VST3 zip
+      - name: Package raw zip
         shell: pwsh
         run: |
           Compress-Archive `
-            -Path "TeAr/build/TeAr_artefacts/Release/VST3" `
-            -DestinationPath "TeAr-VST3-Windows-x86_64.zip"
+            -Path "TeAr/build/TeAr_artefacts/Release/VST3","TeAr/build/TeAr_artefacts/Release/CLAP" `
+            -DestinationPath "TeAr-Windows-x86_64.zip"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: windows-vst3
-          path: TeAr-VST3-Windows-x86_64.zip
+          name: windows-x86_64
+          path: TeAr-Windows-x86_64.zip
 
   # ── macOS universal (arm64 + x86_64) ──────────────────────────────────────
   build-macos:
@@ -131,13 +115,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: TeAr
-          submodules: recursive
-
-      - uses: actions/checkout@v4
-        with:
-          repository: juce-framework/JUCE
-          ref: 8.0.12
-          path: JUCE
 
       - name: Configure & Build
         run: |
@@ -145,6 +122,7 @@ jobs:
           # any CMakeLists line runs, so it cannot be lost to file ordering.
           cmake -B TeAr/build -S TeAr \
             -DCMAKE_BUILD_TYPE=Release \
+            -DFXME_USE_SIBLINGS=OFF \
             -DCMAKE_OSX_ARCHITECTURES="arm64;x86_64" \
             -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13
           # BinaryData alone first, serially: juceaide generating the resource
@@ -160,7 +138,8 @@ jobs:
           status=0
           for bundle in \
             "$ART/VST3/TeAr.vst3/Contents/MacOS/TeAr" \
-            "$ART/AU/TeAr.component/Contents/MacOS/TeAr"
+            "$ART/AU/TeAr.component/Contents/MacOS/TeAr" \
+            "$ART/CLAP/TeAr.clap/Contents/MacOS/TeAr"
           do
             if [[ ! -f "$bundle" ]]; then
               echo "::error::missing binary: $bundle"; status=1; continue
@@ -182,7 +161,7 @@ jobs:
         run: |
           set -euo pipefail
           ART=TeAr/build/TeAr_artefacts/Release
-          for b in "$ART/VST3/TeAr.vst3" "$ART/AU/TeAr.component"; do
+          for b in "$ART/VST3/TeAr.vst3" "$ART/AU/TeAr.component" "$ART/CLAP/TeAr.clap"; do
             codesign --force --deep --sign - --timestamp=none "$b"
             codesign --verify --verbose "$b"
           done
@@ -197,10 +176,13 @@ jobs:
           [[ "$VERSION" =~ ^[0-9] ]] || VERSION="0.4.2"
           mkdir -p pkg_root/Library/Audio/Plug-Ins/VST3
           mkdir -p pkg_root/Library/Audio/Plug-Ins/Components
+          mkdir -p pkg_root/Library/Audio/Plug-Ins/CLAP
           cp -r "TeAr/build/TeAr_artefacts/Release/VST3/TeAr.vst3" \
                 "pkg_root/Library/Audio/Plug-Ins/VST3/"
           cp -r "TeAr/build/TeAr_artefacts/Release/AU/TeAr.component" \
                 "pkg_root/Library/Audio/Plug-Ins/Components/"
+          cp -r "TeAr/build/TeAr_artefacts/Release/CLAP/TeAr.clap" \
+                "pkg_root/Library/Audio/Plug-Ins/CLAP/"
           pkgbuild \
             --root pkg_root \
             --identifier com.fx-mechanics.TeAr \
@@ -213,23 +195,17 @@ jobs:
           name: macos-pkg
           path: TeAr-macOS.pkg
 
-      - name: Package raw zips
+      - name: Package raw zip
         run: |
           # -y stores symlinks as symlinks rather than following them, which is
           # what keeps a macOS bundle (and its signature) intact through a zip.
           cd TeAr/build/TeAr_artefacts/Release
-          zip -ry ${{ github.workspace }}/TeAr-VST3-macOS-universal.zip VST3/
-          zip -ry ${{ github.workspace }}/TeAr-AU-macOS-universal.zip AU/
+          zip -ry ${{ github.workspace }}/TeAr-macOS-universal.zip VST3/ AU/ CLAP/
 
       - uses: actions/upload-artifact@v4
         with:
-          name: macos-vst3
-          path: TeAr-VST3-macOS-universal.zip
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: macos-au
-          path: TeAr-AU-macOS-universal.zip
+          name: macos-zip
+          path: TeAr-macOS-universal.zip
 
   # ── Publish GitHub Release ────────────────────────────────────────────────
   release:
