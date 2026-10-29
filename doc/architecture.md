@@ -126,8 +126,32 @@ through it and would carry no version at all):
   the pattern language moves, which the plugin version does not.
 
 Absent means the state predates versioning, so syntax 1. Currently
-`currentPatternSyntax` is 2, and `migrateArpPatterns()` runs
-`fxme::Arpeggiator::migratePatternV1toV2()` over every pattern on load.
+`currentPatternSyntax` is 3. `migrateArpPatterns()` runs
+`fxme::Arpeggiator::migratePatternV1toV2()` over the patterns of a syntax-1
+state on load.
+
+**Syntax 3, per arpeggiator.** Since the engine plays the pattern-language
+compiler's passes (FxmeTools' `midi/PatternLanguage.h`), a pattern may be
+read in syntax 2 or 3, and each arpeggiator says which (`ArpInstance::syntax`,
+saved as the `syntax` attribute of its `Arp` element):
+
+- a state written with `patternSyntax` below 3 (every factory preset, every
+  project saved before) loads all its patterns as **syntax 2**, untouched, so
+  they play exactly as they did (the engine's golden tests in FxmeTools hold
+  its syntax-2 output to the old engine's, sample for sample);
+- an edited pattern (typed, randomized, generated), and every new
+  arpeggiator, become **syntax 3**; a field that loses focus without a change
+  keeps its syntax;
+- a state written with `patternSyntax` 3 reads each arpeggiator's `syntax`
+  (3 if absent).
+
+The editor says it under the pattern: "syntax 2" (grey, with a tooltip on what
+editing changes) or, for a syntax-3 pattern that does not compile, the error
+and its position in red (the last valid pattern keeps playing). The playing
+step's highlight comes from the engine (`getCurrentStepSource`), so it is right
+for repeats, generators and variations. `tests/TeArStateTests.cpp`
+(`-DTEAR_BUILD_TESTS=ON`) checks the factory presets, a saved and reloaded
+state, edits, a new arpeggiator, an invalid pattern and a syntax-1 state.
 
 Syntax 2 (new in 0.4.0) made degrees and velocity levels uppercase hexadecimal.
 Only velocity changed meaning, so only velocity is converted. Migration only
@@ -204,12 +228,20 @@ FxmeTools (a sibling clone `../FxmeTools`, or the commit pinned in
 FX-Mechanics plugin, so changes there are changes to a shared library: keep the
 public API backward compatible, and push it before bumping the pin in TeAr.
 
-`Arpeggiator.h` carries the unit tests that matter most here
-(`FxmeTools/tests/test_arpeggiator.cpp`, 36 cases). Run them with
-`../FxmeTools/tests/run_tests.sh`, or configure with
-`-DTEAR_BUILD_TESTS=ON` and `ctest -R ArpeggiatorTests`. Note that
-`build_tests/` may still hold a stale `cppMusicToolsTests` binary from an
-earlier layout; the current one is `FxmeToolsTests`.
+The engine now lives in FxmeTools' **core** (`core/FxmeTools/midi/Arpeggiator.h`,
+no JUCE; the include spelling is unchanged). It no longer produces a
+`juce::MidiBuffer`: `processBlock()`, `reset()` and `turnOff()` return a view
+over `fxme::ArpMidiEvent`s (sample offset, channel, note, velocity, note-on or
+off), valid until the next call to one of the three, and patterns are
+`std::string`. `PluginProcessor.cpp` turns the events into `juce::MidiMessage`s
+in one small helper (`addArpEvents`). TeAr never calls `setSeed()`, so its
+random choices (`?`, `pN`, `v?`) stay unpredictable as before.
+
+The engine's unit tests that matter most here are in FxmeTools:
+`core/tests/CoreArpeggiatorTests.cpp` (target `FxmeCoreArpeggiatorTests`, run with
+`cmake -S core -B build-core && cmake --build build-core && ctest --test-dir build-core -R Arpeggiator`
+in `../FxmeTools`). The JUCE-side `FxmeToolsTests` (`-DTEAR_BUILD_TESTS=ON`,
+`ctest -R FxmeToolsTests`) no longer holds them.
 
 ---
 

@@ -30,4 +30,9 @@ struct ArpInstance
     bool         onState    { true };
     int          midiChannel{ 1 };
     int          subdivision{ 4 };      // index 4 = 1/16 (default)
+    /** The syntax its pattern is read in (the pattern language, syntax 3, or
+        TeAr's syntax 2): 2 for a pattern that came from a preset or a project
+        saved before syntax 3, so that it plays exactly as it did; 3 as soon as
+        the pattern is edited, and for every new arpeggiator. */
+    int          syntax     { 3 };
 };

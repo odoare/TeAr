@@ -66,7 +66,7 @@ TeArAudioProcessor::TeArAudioProcessor()
 
         auto tree = apvts.state.getChildWithName ("Arpeggiators");
         if (tree.isValid())
-            loadArpsFromTree (tree);
+            loadArpsFromTree (tree, syntax);
 
         migrateArpPatterns (syntax);
         syncArpOnStatesFromParameters();
@@ -151,7 +151,7 @@ void TeArAudioProcessor::prepareToPlay (double sr, int samplesPerBlock)
     for (auto& arp : arps)
     {
         arp.engine.prepareToPlay (sampleRate);
-        arp.engine.setPattern (arp.pattern);
+        applyPattern (arp);
         // Pre-warm each engine's internal chord storage to match the scratch buffers.
         arp.engine.setChord     (scratchPlayedChord);
         arp.engine.setRootChord (scratchRootChord);
@@ -178,6 +178,16 @@ bool TeArAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) con
   #endif
 }
 #endif
+
+// The arpeggiator engine hands back plain events; this is the one place they
+// become JUCE MIDI messages.
+static void addArpEvents (juce::MidiBuffer& midi, fxme::ArrayView<fxme::ArpMidiEvent> events)
+{
+    for (const auto& e : events)
+        midi.addEvent (e.noteOn ? juce::MidiMessage::noteOn (e.channel, e.note, (juce::uint8) e.velocity)
+                                : juce::MidiMessage::noteOff (e.channel, e.note),
+                       e.sample);
+}
 
 void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
 {
@@ -209,7 +219,7 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
             }
 
             if (positionInfo.isPlaying)
-                for (auto& arp : arps) arp.engine.syncToPlayHead (positionInfo);
+                for (auto& arp : arps) arp.engine.syncToPlayHead (positionInfo.ppqPosition);
             else if (wasPlaying)
                 transportJustStopped = true;
 
@@ -320,14 +330,14 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     {
         for (auto& arp : arps)
             if (arp.onState)
-                midiMessages.addEvents (arp.engine.turnOff (arp.midiChannel), 0, -1, 0);
+                addArpEvents (midiMessages, arp.engine.turnOff (arp.midiChannel));
     }
 
     if (transportJustStopped)
     {
         for (auto& arp : arps)
             if (arp.onState)
-                midiMessages.addEvents (arp.engine.reset (arp.midiChannel), 0, -1, 0);
+                addArpEvents (midiMessages, arp.engine.reset (arp.midiChannel));
     }
 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
@@ -336,7 +346,7 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     if (!heldNotes.isEmpty())
         for (auto& arp : arps)
             if (arp.onState)
-                midiMessages.addEvents (arp.engine.processBlock (buffer.getNumSamples(), arp.midiChannel), 0, -1, 0);
+                addArpEvents (midiMessages, arp.engine.processBlock (buffer.getNumSamples(), arp.midiChannel));
 }
 
 //==============================================================================
@@ -357,17 +367,26 @@ void TeArAudioProcessor::writeVersionTo (juce::ValueTree& state)
     state.setProperty (patternSyntaxProperty, currentPatternSyntax,     nullptr);
 }
 
+void TeArAudioProcessor::applyPattern (ArpInstance& arp)
+{
+    arp.engine.setPatternSyntax (arp.syntax);
+    arp.engine.setPattern (arp.pattern);
+}
+
 void TeArAudioProcessor::migrateArpPatterns (int fromSyntax)
 {
-    if (fromSyntax >= currentPatternSyntax)
+    // Syntax 1 texts become syntax 2 (their velocities); syntax 2 and 3 texts are
+    // never rewritten: a syntax-2 pattern simply keeps being read as syntax 2.
+    if (fromSyntax >= 2)
         return;
 
     juce::ScopedLock lock (arpsLock);
 
     for (auto& arp : arps)
     {
-        arp.pattern = fxme::Arpeggiator::migratePatternV1toV2 (arp.pattern);
-        arp.engine.setPattern (arp.pattern);
+        arp.pattern = juce::String (fxme::Arpeggiator::migratePatternV1toV2 (arp.pattern));
+        arp.syntax = 2;
+        applyPattern (arp);
     }
 }
 
@@ -383,6 +402,7 @@ juce::ValueTree TeArAudioProcessor::buildArpsTree() const
         juce::ValueTree arpTree ("Arp");
         arpTree.setProperty ("index",   i,               nullptr);
         arpTree.setProperty ("pattern", arps[asIndex (i)].pattern, nullptr);
+        arpTree.setProperty ("syntax",  arps[asIndex (i)].syntax,  nullptr);
 
         // The on/off state is an automatable parameter, so the parameter wins
         // over the cached copy in the instance.
@@ -407,7 +427,7 @@ void TeArAudioProcessor::storeArpsInState()
     apvts.state.appendChild (buildArpsTree(), nullptr);
 }
 
-void TeArAudioProcessor::loadArpsFromTree (const juce::ValueTree& tree)
+void TeArAudioProcessor::loadArpsFromTree (const juce::ValueTree& tree, int stateSyntax)
 {
     juce::ScopedLock lock (arpsLock);
 
@@ -426,10 +446,12 @@ void TeArAudioProcessor::loadArpsFromTree (const juce::ValueTree& tree)
         arp.onState     = (int) arpTree.getProperty ("on",          1) != 0;
         arp.midiChannel = juce::jlimit (1, 16, (int) arpTree.getProperty ("midiChannel", 1));
         arp.subdivision = (int) arpTree.getProperty ("subdivision", 4);
+        // Saved before syntax 3: read as syntax 2, as it was written.
+        arp.syntax      = stateSyntax >= 3 ? juce::jlimit (2, 3, (int) arpTree.getProperty ("syntax", 3)) : 2;
 
         arp.engine.prepareToPlay  (sampleRate);
-        arp.engine.setPattern     (arp.pattern);
         arp.engine.setSubdivision (arp.subdivision);
+        applyPattern (arp);
         arp.engine.setTempo       (lastKnownBPM);
         arp.engine.setChordMethod (chordMethod);
         arps.push_back (std::move (arp));
@@ -470,9 +492,10 @@ void TeArAudioProcessor::loadLegacyArps (const juce::XmlElement& xmlState)
         arp.onState     = xmlState.getBoolAttribute   ("arpOn"             + juce::String (i), true);
         arp.midiChannel = (int) getParam ("midiChannel" + juce::String (i + 1), (float) (i + 1));
         arp.subdivision = (int) getParam ("subdivision" + juce::String (i + 1), 4.0f);
+        arp.syntax      = 2;   // a v1 state: migrated to syntax 2, and read so
 
         arp.engine.prepareToPlay  (sampleRate);
-        arp.engine.setPattern     (arp.pattern);
+        applyPattern (arp);
         arp.engine.setSubdivision (arp.subdivision);
         arp.engine.setTempo       (lastKnownBPM);
         arp.engine.setChordMethod ((int) apvts.getRawParameterValue ("chordMethod")->load());
@@ -510,7 +533,7 @@ void TeArAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 
     auto arpsTree = apvts.state.getChildWithName ("Arpeggiators");
     if (arpsTree.isValid())
-        loadArpsFromTree (arpsTree);
+        loadArpsFromTree (arpsTree, syntax);
     else
         loadLegacyArps (*xmlState);   // v1 by definition
 
@@ -549,7 +572,7 @@ void TeArAudioProcessor::addArpeggiator()
         arp.engine.setSubdivision (arp.subdivision);
         arp.engine.setTempo       (lastKnownBPM);
         arp.engine.setChordMethod ((int) apvts.getRawParameterValue ("chordMethod")->load());
-        arp.engine.setPattern     (arp.pattern);
+        applyPattern (arp);   // a new arpeggiator: syntax 3
         arps.push_back (std::move (arp));
     }
     storeArpsInState();
@@ -593,8 +616,12 @@ void TeArAudioProcessor::setArpeggiatorPattern (int index, const juce::String& p
     {
         juce::ScopedLock lock (arpsLock);
         if (!juce::isPositiveAndBelow (index, (int) arps.size())) return;
-        arps[asIndex (index)].pattern = pattern;
-        arps[asIndex (index)].engine.setPattern (pattern);
+        auto& arp = arps[asIndex (index)];
+        if (pattern == arp.pattern)
+            return;   // a field that lost focus without a change: an old pattern stays in its syntax
+        arp.pattern = pattern;
+        arp.syntax  = 3;   // edited: read in the current syntax from now on
+        applyPattern (arp);
 
         if (!wasPlaying && arps[asIndex (index)].onState)
         {
@@ -630,8 +657,10 @@ void TeArAudioProcessor::randomizeArpeggiator (int index)
     {
         juce::ScopedLock lock (arpsLock);
         if (!juce::isPositiveAndBelow (index, (int) arps.size())) return;
+        arps[asIndex (index)].syntax = 3;
+        arps[asIndex (index)].engine.setPatternSyntax (3);
         arps[asIndex (index)].engine.randomize();
-        arps[asIndex (index)].pattern = arps[asIndex (index)].engine.getPattern();
+        arps[asIndex (index)].pattern = juce::String (arps[asIndex (index)].engine.getPattern());
     }
     storeArpsInState();
     sendChangeMessage();
@@ -688,6 +717,31 @@ int TeArAudioProcessor::getArpeggiatorSubdivision (int index) const
     if (juce::isPositiveAndBelow (index, (int) arps.size()))
         return arps[asIndex (index)].subdivision;
     return 4;
+}
+
+juce::String TeArAudioProcessor::getArpeggiatorError (int index) const
+{
+    juce::ScopedLock lock (arpsLock);
+    if (! juce::isPositiveAndBelow (index, (int) arps.size()))
+        return {};
+    for (const auto& d : arps[asIndex (index)].engine.getDiagnostics())
+        if (! d.warning)
+            return juce::String (d.message) + " (at " + juce::String (d.position + 1) + ")";
+    return {};
+}
+
+int TeArAudioProcessor::getArpeggiatorSyntax (int index) const
+{
+    juce::ScopedLock lock (arpsLock);
+    return juce::isPositiveAndBelow (index, (int) arps.size()) ? arps[asIndex (index)].syntax : 3;
+}
+
+std::pair<int, int> TeArAudioProcessor::getArpeggiatorCurrentSource (int index) const
+{
+    // No lock: acceptable minor race for visual feedback only, as getArpeggiatorCurrentStep
+    if (juce::isPositiveAndBelow (index, (int) arps.size()))
+        return arps[asIndex (index)].engine.getCurrentStepSource();
+    return { -1, -1 };
 }
 
 int TeArAudioProcessor::getArpeggiatorCurrentStep (int index) const

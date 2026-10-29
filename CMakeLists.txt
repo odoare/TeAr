@@ -108,7 +108,8 @@ target_link_libraries(TeAr
 )
 
 # ---------------------------------------------------------------------------
-# Unit tests for the FxmeTools arpeggiator engine (opt-in, off by default)
+# Unit tests for the JUCE-side FxmeTools code (opt-in, off by default). The
+# arpeggiator engine is core now: its tests are core/tests in FxmeTools.
 # Build with: cmake -DTEAR_BUILD_TESTS=ON ...
 # Run with:   ctest --test-dir <build> (or ../FxmeTools/tests/run_tests.sh)
 # ---------------------------------------------------------------------------
@@ -116,5 +117,35 @@ option(TEAR_BUILD_TESTS "Build FxmeTools unit tests" OFF)
 if(TEAR_BUILD_TESTS)
     enable_testing()  # must be in the top-level CMakeLists for CTest to discover tests
     # Out-of-tree source dir: it needs an explicit binary dir.
-    add_subdirectory(${FXMETOOLS_DIR}/tests FxmeToolsTests)
+    add_subdirectory(${FXMETOOLS_DIR}/tests FxmeToolsTests)   # also brings doctest
+
+    # The processor's pattern syntaxes across presets, projects and edits: its
+    # sources compiled into a console app (no plugin wrapper), the plugin's macros given.
+    juce_add_console_app(TeArStateTests PRODUCT_NAME "TeAr State Tests")
+    target_sources(TeArStateTests PRIVATE
+        tests/TeArStateTests.cpp
+        Source/PluginProcessor.cpp
+        Source/PluginEditor.cpp
+        Source/ArpeggiatorComponent.cpp
+        Source/popupWindow.cpp)
+    juce_generate_juce_header(TeArStateTests)
+    target_include_directories(TeArStateTests PRIVATE Source ${doctest_SOURCE_DIR})
+    target_compile_definitions(TeArStateTests PRIVATE
+        TEAR_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}"
+        JucePlugin_Name="TeAr"
+        JucePlugin_VersionString="${PROJECT_VERSION}"
+        JucePlugin_IsSynth=1
+        JucePlugin_IsMidiEffect=0
+        JucePlugin_WantsMidiInput=1
+        JucePlugin_ProducesMidiOutput=1
+        JUCE_STANDALONE_APPLICATION=1
+        JUCE_STRICT_REFCOUNTEDPOINTER=1
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0)
+    target_link_libraries(TeArStateTests PRIVATE
+        TeArBinaryData FxmeTools
+        juce_audio_basics juce_audio_devices juce_audio_formats juce_audio_processors
+        juce_audio_utils juce_core juce_data_structures juce_events juce_graphics juce_gui_basics juce_gui_extra
+        juce::juce_recommended_config_flags)
+    add_test(NAME TeArStateTests COMMAND TeArStateTests)
 endif()

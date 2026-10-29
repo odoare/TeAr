@@ -45,6 +45,9 @@ public:
     void setMidiChannel (int channel);
     int  getMidiChannel() const;
     void setHighlightedRegion (juce::Range<int> range);
+    /** Under the pattern: `error` (red) when it does not play, else a note when it is
+        an old pattern read in syntax 2 (`syntax2`); nothing otherwise. */
+    void setStatus (const juce::String& error, bool syntax2);
     bool editorHasKeyboardFocus() const;
 
     /** The arpeggiator's own on/off switch, at the bottom left next to the
@@ -82,6 +85,9 @@ private:
     juce::Label    midiChannelLabel;
     juce::ComboBox midiChannelBox;
     juce::Colour   colour { juce::Colours::white };
+    juce::Label    status;                  // under the pattern, when there is something to say
+    juce::String   shownError;
+    bool           shownSyntax2 = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (ArpeggiatorComponent)
 };

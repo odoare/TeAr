@@ -66,6 +66,13 @@ public:
 
     // --- UI helpers (read-only, called from message thread) ---
     int              getArpeggiatorCurrentStep (int index) const;
+    /** The characters [start, end) of the step playing; {-1, -1} if none. */
+    std::pair<int, int> getArpeggiatorCurrentSource (int index) const;
+    /** Why the arpeggiator's pattern does not play (its last valid one does), with the
+        position; empty when it plays. */
+    juce::String     getArpeggiatorError (int index) const;
+    /** 2: an old pattern read in TeAr's syntax 2 until it is edited; 3: the current syntax. */
+    int              getArpeggiatorSyntax (int index) const;
     const fxme::Arpeggiator& getArpeggiator (int index) const;
     bool             areNotesHeld() const;
     juce::Array<int> getHeldNotes() const;
@@ -113,8 +120,10 @@ private:
         apvts.state. Also what marks the preset dirty after an edit. */
     void storeArpsInState();
 
-    /** Rebuilds `arps` from a tree produced by buildArpsTree(). */
-    void loadArpsFromTree (const juce::ValueTree& tree);
+    /** Rebuilds `arps` from a tree produced by buildArpsTree(), written with
+        pattern syntax `stateSyntax` (the state's patternSyntax): below 3 every
+        pattern keeps syntax 2; from 3 each arpeggiator carries its own. */
+    void loadArpsFromTree (const juce::ValueTree& tree, int stateSyntax);
 
     /** Reads each arpeggiator's on/off from its APVTS parameter, which stays
         authoritative (it is the automatable one). */
@@ -134,8 +143,10 @@ private:
 
     /** Syntax the patterns in this build are written in. 1 = decimal velocity
         on a level*16 scale; 2 = hexadecimal values (velocity 1-F, degrees
-        1-F). */
-    static constexpr int currentPatternSyntax = 2;
+        1-F); 3 = the pattern language (chords, note values, generators...),
+        and each arpeggiator then says which syntax its own pattern is in
+        (ArpInstance::syntax): an old pattern stays in syntax 2 until edited. */
+    static constexpr int currentPatternSyntax = 3;
 
     static const juce::Identifier pluginVersionProperty;
     static const juce::Identifier patternSyntaxProperty;
@@ -147,6 +158,10 @@ private:
         syntax version the state was written with. Absent (0) means v1: the
         state predates versioning entirely. */
     void migrateArpPatterns (int fromSyntax);
+
+    /** Puts an arpeggiator's engine on its syntax, then its pattern (the order matters:
+        changing the syntax recompiles the text the engine holds). */
+    static void applyPattern (ArpInstance& arp);
 
     double sampleRate   = 0.0;
     double lastKnownBPM = 120.0;

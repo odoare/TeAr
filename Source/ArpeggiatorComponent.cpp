@@ -8,6 +8,9 @@ static const juce::StringArray subdivisionChoices { "1/4", "1/4T", "1/8", "1/8T"
 ArpeggiatorComponent::ArpeggiatorComponent()
 {
     addAndMakeVisible (textEditor);
+    status.setFont (juce::Font (juce::FontOptions (12.0f)));
+    status.setJustificationType (juce::Justification::centredLeft);
+    addChildComponent (status);
     textEditor.setLookAndFeel (&laf);
     textEditor.setMultiLine (true);
     textEditor.setFont (juce::Font (juce::FontOptions (juce::Font::getDefaultMonospacedFontName(),
@@ -135,6 +138,31 @@ int ArpeggiatorComponent::getMidiChannel() const
     return midiChannelBox.getSelectedId();
 }
 
+void ArpeggiatorComponent::setStatus (const juce::String& error, bool syntax2)
+{
+    if (error == shownError && syntax2 == shownSyntax2)
+        return;
+    shownError = error;
+    shownSyntax2 = syntax2;
+    if (error.isNotEmpty())
+    {
+        status.setText ("Not played: " + error, juce::dontSendNotification);
+        status.setColour (juce::Label::textColourId, juce::Colour (0xffe8483c));
+        status.setTooltip ("The last valid pattern keeps playing until this one is fixed");
+    }
+    else if (syntax2)
+    {
+        status.setText ("syntax 2", juce::dontSendNotification);
+        status.setColour (juce::Label::textColourId, juce::Colours::grey);
+        status.setTooltip ("A pattern from a preset or a project saved before syntax 3: it plays as it always did "
+                           "(its octave and velocity carry over from one pass to the next). Edit it to use syntax 3: "
+                           "chords {135}, note values m8, generators e5/16, repeats (..)*3, variations [a|b].");
+    }
+    else
+        status.setText ({}, juce::dontSendNotification);
+    resized();
+}
+
 void ArpeggiatorComponent::setHighlightedRegion (juce::Range<int> range)
 {
     textEditor.setHighlightedRegion (range);
@@ -150,6 +178,12 @@ void ArpeggiatorComponent::resized()
     auto b = getLocalBounds().reduced (4);
     auto bottomRow = b.removeFromBottom (38);
     b.removeFromBottom (4);
+    if (status.getText().isNotEmpty())
+    {
+        status.setBounds (b.removeFromBottom (16));
+        b.removeFromBottom (2);
+    }
+    status.setVisible (status.getText().isNotEmpty());
     textEditor.setBounds (b);
 
     onOffButton.setBounds (bottomRow.removeFromLeft (Theme::onOffWidth).reduced (2, 4));

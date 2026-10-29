@@ -113,10 +113,10 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
         // lock and then stored in the popup, which outlives this click: a
         // preset or session load clearing `arps` would have left it dangling.
         auto makeEuclidian = [] (int hits, int steps, int rotation) {
-            return fxme::Arpeggiator::makeEuclidianPattern (hits, steps, rotation);
+            return juce::String (fxme::Arpeggiator::makeEuclidianPattern (hits, steps, rotation));
         };
         auto makeRandom = [] () {
-            return fxme::Arpeggiator::makeRandomPattern();
+            return juce::String (fxme::Arpeggiator::makeRandomPattern());
         };
         auto onOk = [this] (juce::String pattern) {
             audioProcessor.setArpeggiatorPattern (selectedArpIndex, pattern);
@@ -490,6 +490,11 @@ void TeArAudioProcessorEditor::timerCallback()
         updateScaleDisplay();
     }
 
+    // Each pattern's status: why it does not play, or that it is still read in syntax 2.
+    for (int i = 0; i < (int) arpComponents.size(); ++i)
+        arpComponents[asIndex (i)]->setStatus (audioProcessor.getArpeggiatorError (i),
+                                               audioProcessor.getArpeggiatorSyntax (i) < 3);
+
     if (juce::isPositiveAndBelow (selectedArpIndex, (int) arpComponents.size()))
     {
         auto* comp = arpComponents[asIndex (selectedArpIndex)].get();
@@ -499,16 +504,12 @@ void TeArAudioProcessorEditor::timerCallback()
 
         if (canHighlight)
         {
-            int currentStep = audioProcessor.getArpeggiatorCurrentStep (selectedArpIndex);
-            if (currentStep != lastStepIndices[selectedArpIndex])
+            // The characters the engine played (right for repeats, generators and variations too).
+            const auto [stepStart, stepEnd] = audioProcessor.getArpeggiatorCurrentSource (selectedArpIndex);
+            if (stepStart != lastStepIndices[selectedArpIndex])
             {
-                lastStepIndices.set (selectedArpIndex, currentStep);
-                const auto& arp     = audioProcessor.getArpeggiator (selectedArpIndex);
-                const auto  pattern = audioProcessor.getArpeggiatorPattern (selectedArpIndex);
-                int stepStart = arp.getPatternIndexForStep (currentStep);
-                int stepEnd   = arp.getPatternIndexForStep (currentStep + 1);
-                if (stepEnd <= stepStart) stepEnd = pattern.length();
-                comp->setHighlightedRegion ({ stepStart, stepEnd });
+                lastStepIndices.set (selectedArpIndex, stepStart);
+                comp->setHighlightedRegion (stepStart >= 0 && stepEnd > stepStart ? juce::Range<int> { stepStart, stepEnd } : juce::Range<int>());
             }
         }
         else if (lastStepIndices[selectedArpIndex] != -1)

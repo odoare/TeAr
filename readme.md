@@ -152,6 +152,27 @@ Here steps 3–5 are always anchored to the scale root while steps 1, 2, 4 follo
 
 > **Note**: In versions up to 0.2, `"` was used to "repeat last degree" command. The dedicated command for that is now  `=`.
 
+### Syntax 3 (new)
+
+Patterns you type now are read in **syntax 3**, a superset of the language above: everything written so far keeps its meaning, and these are added.
+
+| Write | Meaning |
+| :--- | :--- |
+| `{135}` | a chord: degrees 1, 3 and 5 together (`v9{135}`: a prefix for all of them) |
+| `(m32 1 2 3 4) 5 6` | local note values: `m4 m8 m16 m32 m64`, `t` for triplets (`m8t`); an `m` at the start replaces the step duration selector |
+| `e5/16 x`, `e3/8+2 (1 3 5)` | an euclidean rhythm: `k` hits over `n` steps, rotated; the token after it is what each hit plays (a group: its notes in turn) |
+| `n8:32-251 1` | a binary rhythm: a number drawn in the range, read in binary |
+| `x` | a hit without pitch |
+| `(1 2 3)*3` | a repeat |
+| `1 [3\|5\|7]` | a variation by pass: 3 the first time through, 5 the second, 7 the third |
+| `g5 1`, `G5` | a gate: the note sounds half its step |
+| `e3-5/16 x` | a range: drawn again at each pass |
+| `; …` | a comment to the end of the line |
+
+And two rules change: **every pass starts from the pattern's defaults** (an `O+` without its `O-` no longer climbs an octave per pass), and a probability's two branches (`p5 (1 2):(3 4)`) must last the same. A typing error is shown under the pattern, with its position, and the last valid pattern keeps playing.
+
+**Your presets and projects are not changed**: a pattern saved before syntax 3 is read in syntax 2 and plays exactly as it did ("syntax 2" is shown under it). It becomes syntax 3 when you edit it.
+
 ---
 
 ## Implemented Scale Modes
