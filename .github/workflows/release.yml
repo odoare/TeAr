@@ -173,7 +173,7 @@ jobs:
           # Manual workflow_dispatch runs have no tag. Only the pkg identifier
           # uses it, never a tagged release, but it should still look sane:
           # keep it in step with project() in CMakeLists.txt.
-          [[ "$VERSION" =~ ^[0-9] ]] || VERSION="0.4.2"
+          [[ "$VERSION" =~ ^[0-9] ]] || VERSION="0.5.0"
           mkdir -p pkg_root/Library/Audio/Plug-Ins/VST3
           mkdir -p pkg_root/Library/Audio/Plug-Ins/Components
           mkdir -p pkg_root/Library/Audio/Plug-Ins/CLAP

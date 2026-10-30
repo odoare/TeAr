@@ -2,7 +2,9 @@
 %
 % Build:  pdflatex TeAr-language-reference.tex   (twice, for the table of contents)
 %
-% Documents pattern syntax version 2, as implemented in TeAr 0.4.0.
+% Documents pattern syntax version 3, as implemented in TeAr 0.5.0.
+% The language itself is implemented in FxmeTools (midi/PatternLanguage.h) and
+% shared with other FX-Mechanics projects.
 % (c) 2026 Olivier Doare -- SPDX-License-Identifier: LGPL-3.0-or-later
 
 \documentclass[11pt,a4paper]{article}
@@ -41,14 +43,14 @@
 \pagestyle{fancy}
 \fancyhf{}
 \lhead{\small TeAr pattern language}
-\rhead{\small syntax version 2}
+\rhead{\small syntax version 3}
 \cfoot{\thepage}
 \renewcommand{\headrulewidth}{0.4pt}
 
 \title{\textbf{TeAr}\\[2mm]\large The Text Arpeggiator\\[4mm]
        \normalsize Pattern language reference}
 \author{FX-Mechanics}
-\date{Syntax version 2 \quad---\quad TeAr 0.4.0}
+\date{Syntax version 3 \quad---\quad TeAr 0.5.0}
 
 \begin{document}
 \maketitle
@@ -61,8 +63,10 @@ sequence. Each pattern belongs to one arpeggiator, and several arpeggiators run
 at once, each with its own pattern, step duration and MIDI output channel.
 
 This document is the complete reference for the pattern language as
-implemented in TeAr 0.4.0. Section~\ref{sec:quickref} is a one-page summary for
-printing; the rest explains each command in turn.
+implemented in TeAr 0.5.0. Section~\ref{sec:quickref} is a one-page summary for
+printing; the rest explains each command in turn. Sections 1 to 9 describe the
+core of the language; section~\ref{sec:syntax3} describes what syntax version~3
+adds to it, and section~\ref{sec:changes} what changed between versions.
 \end{abstract}
 
 \tableofcontents
@@ -302,12 +306,15 @@ colon. Without one, the step becomes a rest.
 \end{tabular}
 \end{center}
 
-\paragraph{Groups of unequal length.} When the two branches of a
-\pat{:} contain different numbers of steps, the loop's length depends on the
-roll, and so does where the pattern sits against the bar. This is legal and
-musically useful, but it means the sequence is no longer a fixed number of
-steps. Patterns that must stay locked to the bar should keep both branches the
-same length.
+\paragraph{Groups of unequal length.} In syntax version~3 both branches of a
+\pat{:} must last the same time; a difference is an error, so the pattern
+keeps a fixed length and stays locked to the bar. A failed
+\pat{p}\meta{N} \pat{(\ldots)} without a fallback is walked in silence: its
+steps become rests and the length is unchanged.
+
+A pattern still read in syntax version~2 (section~\ref{sec:changes}) keeps the
+old freedom: the branches may differ, the loop's length then depends on the
+roll, and the pattern is no longer anchored to the bar.
 
 %======================================================================
 \section{Blocks}
@@ -349,11 +356,218 @@ The quote characters are markers, not steps: the pattern above is seven steps
 long, not nine.
 
 %======================================================================
+\section{Syntax version 3}
+\label{sec:syntax3}
+
+Version~3 is a superset of everything above: a valid older pattern keeps its
+meaning, apart from the two rules in section~\ref{sec:changes}. The language is
+shared with other FX-Mechanics projects, which is why some of its commands
+(glides, expressions) have no use in a MIDI arpeggiator; they are listed at the
+end of this section.
+
+\subsection{Hits and chords}
+
+\begin{center}
+\begin{tabular}{@{}clp{85mm}@{}}
+\toprule
+\textbf{Command} & & \textbf{Effect}\\
+\midrule
+\pat{x}      & & A hit without pitch. It takes a step, and TeAr plays no note
+                 for it, since it has no sound of its own to trigger.\\
+\pat{\{135\}} & & A chord: degrees 1, 3 and 5 sound together, as one step.\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Inside the braces: degree commands (\pat{1}--\pat{F}, \pat{+}, \pat{-},
+\pat{=}, \pat{?}) with their own local prefixes, as in \pat{\{1 o+5\}} or
+\pat{\{1 \#3 5\}}. No rest, hold, hit or group. A prefix written before the
+braces applies to every note: \pat{v9\{135\}}, \pat{o+\{15\}}. After a chord,
+\pat{+}, \pat{-} and \pat{=} move from its \emph{first} note, and \pat{\_} holds
+the whole chord.
+
+\subsection{Step duration}
+
+\pat{m} followed by a note value sets the duration of the steps that follow,
+until the end of the enclosing \pat{( \ldots\ )}. Add \pat{t} for a triplet,
+which is two thirds of the plain value.
+
+\begin{center}
+\begin{tabular}{@{}lll@{\qquad}lll@{}}
+\toprule
+\textbf{Write} & \textbf{Step} & & \textbf{Write} & \textbf{Step}\\
+\midrule
+\pat{m1}  & 4 beats   & & \pat{m4t}  & 2/3 beat\\
+\pat{m2}  & 2 beats   & & \pat{m8t}  & 1/3 beat\\
+\pat{m4}  & 1 beat    & & \pat{m16t} & 1/6 beat\\
+\pat{m8}  & 1/2 beat  & & \pat{m32t} & 1/12 beat\\
+\pat{m16} & 1/4 beat  & & & \\
+\pat{m32} & 1/8 beat  & & & \\
+\pat{m64} & 1/16 beat & & & \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The digits after \pat{m} are read together: \pat{m16} is a sixteenth, never
+\pat{m1} followed by a \pat{6}. An \pat{m} at the very start of the pattern sets
+the duration of the whole pattern and replaces the arpeggiator's step duration
+selector; a pattern without one keeps the selector's value.
+
+\begin{patternblock}
+(m32 1 2 3 4) 5 6
+\end{patternblock}
+\noindent
+Four thirty-second notes, then two steps at the outer duration.
+
+\subsection{Gate}
+
+\pat{g}\meta{N} makes the next note sound for \meta{N} tenths of its step
+(\meta{N} is \pat{1}--\pat{9}); \pat{gx} sounds the whole step, which is the
+default. Uppercase \pat{G} is global, like \pat{V} and \pat{O}. With \pat{\_},
+the gate applies to the whole held length.
+
+\subsection{Generators}
+
+A generator makes a group of $n$ steps at the duration in effect. The token
+that follows it says what its hits play; every other step of the group is a
+rest.
+
+\begin{center}
+\begin{tabular}{@{}lp{85mm}@{}}
+\toprule
+\textbf{Write} & \textbf{Effect}\\
+\midrule
+\pat{e}\meta{k}\pat{/}\meta{n}            & Euclidean rhythm: $k$ hits spread as evenly as possible over $n$ steps.\\
+\pat{e}\meta{k}\pat{/}\meta{n}\pat{+}\meta{r} & The same, rotated by $r$ steps.\\
+\pat{n}\meta{n}\pat{:}\meta{lo}\pat{-}\meta{hi} & Binary rhythm: a number drawn between $lo$ and $hi$, read as $n$ bits, highest bit first. Without \pat{:}\meta{lo}\pat{-}\meta{hi}, any number from $0$ to $2^n-1$.\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The binary generator is \pat{n}, not \pat{b}, which is the flat. Each of $k$,
+$n$ and $r$ may be a \emph{range} \meta{a}\pat{-}\meta{b}, drawn again at each
+pass (\pat{e3-7/16+0-6}); so may the bit count of a binary generator. A range on
+the step count makes the pattern's length vary from pass to pass. Limits: 1 to
+1024 steps for an euclidean rhythm, 1 to 32 bits for a binary one.
+
+\begin{center}
+\begin{tabular}{@{}lp{85mm}@{}}
+\toprule
+\textbf{After the generator} & \textbf{The hits play}\\
+\midrule
+\pat{x}                 & Unpitched hits.\\
+a degree or a step command (\pat{1}, \pat{+}, \pat{?}) & That, on every hit.\\
+a chord \pat{\{135\}}   & The chord, on every hit.\\
+a group \pat{(1 3 5)}   & Its steps \emph{in turn}, one per hit: 1, 3, 5, 1, 3\ldots\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Prefixes before a generator: a global one applies once to all its hits
+(\pat{V8 e5/16 x}), a local one to every hit (\pat{o+e3/8 1}), and a
+probability is rolled for each hit. A group after a generator is read flat: its
+steps and chords in turn, with their own local prefixes; an \pat{m} inside it
+does not change the generator's step.
+
+\subsection{Repeats and variations}
+
+\begin{center}
+\begin{tabular}{@{}lp{85mm}@{}}
+\toprule
+\textbf{Write} & \textbf{Effect}\\
+\midrule
+\pat{(1 2 3)*3} & The group played 3 times in a row (2 to 64). A repeat needs
+                  a group: write \pat{(1)*4}, not \pat{1*4}.\\
+\pat{1 [3|5|7]} & One part per \emph{pass}, in turn: 3 the first time through the
+                  pattern, 5 the second, 7 the third, then 3 again.\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+A part of a variation may be empty (\pat{[1|]} plays 1 every other pass) and may
+hold several steps. For the pattern to keep its length all parts should last the
+same; a difference is a warning, not an error.
+
+\subsection{Comments}
+
+A semicolon starts a comment that runs to the end of the line:
+\pat{1 2 3 ; going up}.
+
+\subsection{Passes and reset}
+
+A \emph{pass} is one time through the pattern. In syntax version~3, every pass
+starts from the pattern's defaults: the global octave, velocity, gate and step
+duration are those of the pattern's start, no \pat{" \ldots\ "} block is open,
+and the last degree is 1. So \pat{1 O+ 2 3} plays 2 and 3 an octave up on every
+pass, instead of climbing an octave per pass as it did in syntax version~2. This
+also makes the drift warnings of the velocity and octave sections moot for
+patterns read in version~3.
+
+A hold at the very start of a pattern, with nothing before it in the pass, holds
+the last sound of the previous pass, so \pat{\_ 1 \_ . \_ 2} loops with its
+notes ringing across the wrap. A hold that follows a rest is a rest.
+
+\subsection{Stricter reading}
+
+\begin{itemize}[leftmargin=1.5em]
+  \item A value follows its prefix directly: \pat{o 1} is an error. Syntax
+        version~2 read the space as the value.
+  \item A character that is no command is an error. Syntax version~2 skipped
+        unknown characters silently.
+  \item \pat{o?} draws an octave from 0 to 7; \pat{o8} and \pat{o9} are clamped
+        to 7.
+  \item The quotes of a root-relative block must be balanced within a pass, and
+        they do not nest: the next \pat{"} closes the block.
+\end{itemize}
+
+\subsection{Errors}
+
+A pattern with an error does not play: the last valid pattern keeps playing, and
+the error is shown under the pattern text with its position. Typical messages:
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+\textbf{Message} & \textbf{Cause}\\
+\midrule
+\pat{unknown character 'w'}                  & A character that is no command.\\
+\pat{prefix 'o' without a value}             & A prefix with nothing after it.\\
+\pat{a value must be 1-F here}               & A value out of range (\pat{0}--\pat{7}, \pat{0}--\pat{9}\ldots).\\
+\pat{missing ')'}                            & A bracket left open (also \pat{\}}, \pat{]}).\\
+\pat{empty chord}                            & \pat{\{\}} with nothing inside.\\
+\pat{a repeat must be 2-64}                  & A repeat count out of range.\\
+\pat{a probability's branches must last the same} & Unequal \pat{:} branches.\\
+\pat{bad generator}                          & A malformed \pat{e} or \pat{n}.\\
+\pat{bad note value after 'm'}               & An \pat{m} that names no note value.\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+A warning does not stop the pattern: prefixes with no step after them are
+ignored, and the parts of a variation should last the same.
+
+\subsection{Accepted, but not used by TeAr}
+
+The language is shared with hosts that drive more than notes. In TeAr:
+
+\begin{itemize}[leftmargin=1.5em]
+  \item \pat{\textasciitilde} (glide) is meant for hosts that move a value
+        rather than play a note. TeAr ignores it.
+  \item A value between single quotes (\pat{v'0.5'}, \pat{p'0.3'}) is accepted
+        when it is a plain number. A real expression such as \pat{'64*energy'}
+        needs a host that provides them, and gives the error
+        \pat{expressions need a host}.
+  \item \pat{let} definition lines are skipped.
+\end{itemize}
+
+%======================================================================
 \section{Counting steps}
 
-Exactly one thing costs time: a note command. Prefixes (\pat{\#}, \pat{b},
-\pat{v}, \pat{V}, \pat{o}, \pat{O}, \pat{p}) and block markers
-(\pat{(}, \pat{)}, \pat{"}) do not, and neither does whitespace.
+Exactly one thing costs time: a note command (a chord, a hit and a generator's
+steps count as note commands). Prefixes (\pat{\#}, \pat{b}, \pat{v}, \pat{V},
+\pat{o}, \pat{O}, \pat{p}, \pat{g}, \pat{G}, \pat{m}) and block markers
+(\pat{(}, \pat{)}, \pat{"}, \pat{[}, \pat{|}, \pat{]}) do not, and neither
+does whitespace.
 
 \begin{center}
 \begin{tabular}{@{}lcl@{}}
@@ -367,12 +581,16 @@ Exactly one thing costs time: a note command. Prefixes (\pat{\#}, \pat{b},
 \pat{1 2 (O+ 1 2 3) 1 2} & 7  & brackets are markers\\
 \pat{1 "2 3" 4}          & 4  & quotes are markers\\
 \pat{p5 1:2}             & 1  & one step, two possible outcomes\\
+\pat{\{135\} \_}         & 2  & a chord is one step\\
+\pat{e5/16 x}           & 16 & a generator makes its $n$ steps\\
+\pat{(1 2 3)*3}         & 9  & a repeat counts every time\\
 \bottomrule
 \end{tabular}
 \end{center}
 
-The step duration itself is not part of the pattern: it is the arpeggiator's
-own setting, chosen from \pat{1/4} down to \pat{1/64}, including triplets. Two
+Unless the pattern says otherwise with \pat{m} (section~\ref{sec:syntax3}), the
+step duration is not part of the pattern: it is the arpeggiator's own setting,
+chosen from \pat{1/4} down to \pat{1/64}, including triplets. Two
 arpeggiators running the same pattern at different step durations is the
 simplest way to build a polyrhythm.
 
@@ -402,15 +620,38 @@ simplest way to build a polyrhythm.
   & A moderate base velocity with accents on the first and fourth steps.\\[1mm]
 \pat{1 2 3 4 5 "1 3 5" 4 2}
   & In scale mode, a running line that drops to a fixed root-anchored figure in
-    the middle.\\
+    the middle.\\[1mm]
+\pat{e5/16 (1 3 5)}
+  & Five hits spread over sixteen steps, playing 1, 3, 5, 1, 3 in turn.\\[1mm]
+\pat{\{135\} \_ \{146\} \_}
+  & Two chords, each held for two steps.\\[1mm]
+\pat{1 2 3 [4|5|6]}
+  & A line whose last note changes at each pass: 4, then 5, then 6.\\[1mm]
+\pat{(m32 1 2 3 4) 5 6}
+  & A quick run of four thirty-second notes inside a slower pattern.\\[1mm]
+\pat{g3 1 g3 2 g3 3 gx 4}
+  & Staccato notes, then a full-length one.\\
 \bottomrule
 \end{longtable}
 \end{center}
 
 %======================================================================
-\section{Changes in syntax version 2}
+\section{Changes between versions}
+\label{sec:changes}
 
-TeAr 0.4.0 introduced version 2 of the pattern syntax.
+\subsection{Syntax version 3 (TeAr 0.5.0)}
+
+Everything in section~\ref{sec:syntax3} is new, and the language moved into the
+FxmeTools library, shared with other projects. Two rules differ from version~2:
+the modifiers are reset at each pass, and the two branches of a probability must
+last the same.
+
+\paragraph{Your patterns are not changed.} A preset or a project saved before
+version~3 is read in syntax version~2 and plays exactly as it did; ``syntax 2''
+is shown under the pattern. It becomes version~3 as soon as you edit it. New
+arpeggiators start in version~3.
+
+\subsection{Syntax version 2 (TeAr 0.4.0)}
 
 \begin{itemize}[leftmargin=1.5em]
   \item Degrees and velocity levels became uppercase hexadecimal. Degrees now
@@ -442,11 +683,12 @@ now means roughly half velocity rather than maximum; write \pat{vF} instead.
 
 % Tuned so the whole section stays on one page: it is meant to be printed and
 % kept next to the keyboard.
-\renewcommand{\arraystretch}{1.04}
+\renewcommand{\arraystretch}{0.98}
 \setlength{\arrayrulewidth}{0.5pt}
 
+\small
 \noindent
-\begin{tabular}{@{}p{28mm}p{16mm}p{106mm}@{}}
+\begin{tabular}{@{}p{28mm}p{18mm}p{104mm}@{}}
 \toprule
 \textbf{Command} & \textbf{Scope} & \textbf{Effect}\\
 \midrule
@@ -460,6 +702,8 @@ now means roughly half velocity rather than maximum; write \pat{vF} instead.
 \rw{-}{---}{The previous degree.}
 \rw{=}{---}{Repeat the last degree played.}
 \rw{?}{---}{A random degree present in the chord.}
+\rw{x}{---}{A hit without pitch: a step, no note in TeAr.}
+\rw{\{135\}}{---}{A chord: the degrees sound together, as one step.}
 \midrule
 
 \grp{grpMod}{Pitch}{prefix, affects the next note only}
@@ -485,6 +729,11 @@ now means roughly half velocity rather than maximum; write \pat{vF} instead.
 \rw{O?}{global}{A random octave from here on.}
 \midrule
 
+\grp{grpMod}{Time}{syntax 3}
+\pat{m}\meta{v} & global & Step duration \pat{m1}--\pat{m64}, \pat{t} for a triplet (\pat{m8t}).\\
+\pat{g}\meta{N} \ \pat{G}\meta{N} & both & Gate: \meta{N} tenths of the step (\pat{1}--\pat{9}), \pat{x} for all.\\
+\midrule
+
 \grp{grpStruct}{Probability}{decimal \pat{0}--\pat{9}, in tenths}
 \pat{p}\meta{N} \meta{x} & --- & Play \meta{x} with probability \meta{N}$\times$10\%, else rest.\\
 \pat{p}\meta{N} \meta{x}\pat{:}\meta{y} & --- & Play \meta{y} instead when the roll fails.\\
@@ -493,12 +742,17 @@ now means roughly half velocity rather than maximum; write \pat{vF} instead.
 \midrule
 
 \grp{grpStruct}{Blocks}{markers, no step cost}
-\rw{( \ldots\ )}{---}{Scope global modifiers; octave and velocity are restored at the closing bracket.}
-\rw{" \ldots\ "}{---}{Read degrees from the scale root instead of the pressed note (scale mode).}
+\rw{( \ldots\ )}{---}{Scope globals: octave and velocity are restored at the \pat{)}.}
+\rw{" \ldots\ "}{---}{Read degrees from the scale root (scale mode).}
+\rw{( \ldots\ )*N}{---}{Repeat the group N times (2--64).}
+\rw{[a|b|c]}{---}{One part per pass, in turn.}
+\pat{e}\meta{k}\pat{/}\meta{n}\pat{+}\meta{r} \meta{x} & --- & Euclidean rhythm; the token after it is what each hit plays.\\
+\pat{n}\meta{n}\pat{:}\meta{lo}\pat{-}\meta{hi} \meta{x} & --- & Binary rhythm from a drawn number; ranges \meta{a}\pat{-}\meta{b} allowed.\\
+\rw{; \ldots}{---}{Comment to the end of the line.}
 \bottomrule
 \end{tabular}
 
-\vspace{3mm}
+\vspace{1mm}
 
 \noindent
 \begin{tabular}{@{}p{34mm}p{116mm}@{}}

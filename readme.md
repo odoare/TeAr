@@ -15,7 +15,7 @@ Video tutorial: [https://www.youtube.com/watch?v=pWOuQep7nIs](https://www.youtub
 
 *   **Variable Number of Arpeggiator Engines**: Add or remove engines on the fly with the `+` / `-` buttons. Create complex polyrhythms and layered melodic lines.
 *   **Per-Arp Controls**: Each engine has its own On/Off switch, pattern editor, subdivision, and MIDI output channel.
-*   **Powerful Pattern Language**: A rich text-based language for defining arpeggio sequences with modifiers for velocity, octave, and pitch.
+*   **Powerful Pattern Language**: A rich text-based language for defining arpeggio sequences with modifiers for velocity, octave, pitch, gate and step duration, plus chords, euclidean and binary rhythms, repeats and variations.
 *   **Comprehensive Scale Library**: A wide selection of musical scales and modes to define the harmonic landscape.
 *   **Visual Feedback**: A real-time scale display highlights the active scale, its root, and the notes currently being played by each arpeggiator, color-coded for clarity.
 
@@ -31,7 +31,7 @@ Clicking the `?` button next to an arpeggiator's On/Off switch opens the Pattern
 
 ## Pattern Language Documentation
 
-The pattern string consists of characters that define the arpeggio's behavior at each step.
+The pattern string consists of characters that define the arpeggio's behavior at each step. The sections below, down to the end of "Block Commands", describe the core language (syntax 2); [Syntax 3](#syntax-3-new-in-050) extends it.
 
 ### Note Commands
 
@@ -152,26 +152,67 @@ Here steps 3–5 are always anchored to the scale root while steps 1, 2, 4 follo
 
 > **Note**: In versions up to 0.2, `"` was used to "repeat last degree" command. The dedicated command for that is now  `=`.
 
-### Syntax 3 (new)
+## Syntax 3 (new in 0.5.0)
 
-Patterns you type now are read in **syntax 3**, a superset of the language above: everything written so far keeps its meaning, and these are added.
+Version 0.5.0 reads patterns in **syntax 3**, the language now shared with other FX-Mechanics projects (it lives in FxmeTools). It is a superset of everything above: a valid older pattern keeps its meaning, and these are added.
+
+### Steps and durations
 
 | Write | Meaning |
 | :--- | :--- |
-| `{135}` | a chord: degrees 1, 3 and 5 together (`v9{135}`: a prefix for all of them) |
-| `(m32 1 2 3 4) 5 6` | local note values: `m4 m8 m16 m32 m64`, `t` for triplets (`m8t`); an `m` at the start replaces the step duration selector |
-| `e5/16 x`, `e3/8+2 (1 3 5)` | an euclidean rhythm: `k` hits over `n` steps, rotated; the token after it is what each hit plays (a group: its notes in turn) |
-| `n8:32-251 1` | a binary rhythm: a number drawn in the range, read in binary |
-| `x` | a hit without pitch |
-| `(1 2 3)*3` | a repeat |
-| `1 [3\|5\|7]` | a variation by pass: 3 the first time through, 5 the second, 7 the third |
-| `g5 1`, `G5` | a gate: the note sounds half its step |
-| `e3-5/16 x` | a range: drawn again at each pass |
-| `; …` | a comment to the end of the line |
+| `x` | A hit without pitch. TeAr has no sound of its own to trigger, so a hit takes a step and plays no note. |
+| `{135}` | A chord: degrees 1, 3 and 5 together, as one step. Inside the braces: degrees (`1`-`F`, `+`, `-`, `=`, `?`) with their own local prefixes (`{1 o+5}`); no rest, hold, hit or group. A prefix before the braces applies to every note (`v9{135}`). After a chord, `+`, `-` and `=` move from its first note, and `_` holds the whole chord. |
+| `m4` `m8` `m16` `m32` `m64` (`m1`, `m2` too) | Sets the step duration, as a note value, until the end of the enclosing `( … )`. Add `t` for a triplet: `m8t`. An `m` at the start of the pattern replaces the arpeggiator's step duration selector for the whole pattern. Digits after `m` are read together: `m16` is a sixteenth. |
+| `(m32 1 2 3 4) 5 6` | Four 32nds, then two steps at the outer duration. |
+| `g5`, `G5`, `gx` | A gate: the note sounds that many tenths of its step (`gx`: the whole step, the default). `g` is local, `G` global. With `_`, it applies to the whole held length. |
 
-And two rules change: **every pass starts from the pattern's defaults** (an `O+` without its `O-` no longer climbs an octave per pass), and a probability's two branches (`p5 (1 2):(3 4)`) must last the same. A typing error is shown under the pattern, with its position, and the last valid pattern keeps playing.
+### Generators
 
-**Your presets and projects are not changed**: a pattern saved before syntax 3 is read in syntax 2 and plays exactly as it did ("syntax 2" is shown under it). It becomes syntax 3 when you edit it.
+A generator makes a group of `n` steps at the duration in effect. The token that follows says what its hits play; every other step is a rest.
+
+| Write | Meaning |
+| :--- | :--- |
+| `e5/16 x` | An euclidean rhythm: 5 hits spread as evenly as possible over 16 steps. |
+| `e3/8+2 (1 3 5)` | 3 hits over 8 steps, rotated by 2. A group after the generator is played in turn, one step per hit: 1, then 3, then 5, then 1 again. |
+| `e3/8 1`, `e3/8 {135}` | A degree or a chord, played on every hit. |
+| `n8:32-251 1` | A binary rhythm: a number drawn between 32 and 251, read as 8 bits, the highest bit first. (`n`, not `b`, which is the flat.) Without `:lo-hi`, any number of 0 to 2ⁿ-1. |
+| `e3-5/16 x`, `e3/8+0-6 x` | Any of `k`, `n`, `r` can be a range `a-b`, drawn again at each pass. A range on the step count makes the pattern's length vary from pass to pass. |
+
+A global prefix before a generator applies once to all its hits (`V8 e5/16 x`), a local prefix to every hit (`o+e3/8 1`), and a probability is rolled for each hit. Limits: 1 to 1024 steps for an euclidean rhythm, 1 to 32 bits for a binary one.
+
+### Repeats and variations
+
+| Write | Meaning |
+| :--- | :--- |
+| `(1 2 3)*3` | A repeat: the group played 3 times in a row (2 to 64). It needs a group: write `(1)*4`, not `1*4`. |
+| `1 [3\|5\|7]` | A variation by pass: 3 the first time through the pattern, 5 the second, 7 the third, then 3 again. A part can be empty (`[1\|]` plays 1 every other pass) and can hold several steps. For the pattern to keep its length all parts should last the same; a difference is a warning, not an error. |
+| `; …` | A comment, to the end of the line. |
+
+### What changes for existing behaviour
+
+*   **Every pass starts from the pattern's defaults.** The global octave and velocity, the gate and the step duration are those of the pattern's start, no `" … "` block is left open, and the last degree is 1. So `1 O+ 2 3` plays 2 and 3 an octave up on every pass, instead of climbing an octave per pass as in syntax 2.
+*   **A probability's two branches must last the same.** `p5 (1 2):(3 4)` is fine, `p5 (1 2):(3)` is an error. A failed `p5 (…)` without a fallback now plays the group in silence, so the length stays the same.
+*   **Values follow their prefix directly.** `o 1` is an error in syntax 3.
+*   **Unknown characters are errors.** Syntax 2 skipped them silently.
+*   **`o?` draws an octave from 0 to 7**, and `o8`, `o9` are clamped to 7.
+*   **A hold at the very start of a pattern** (`_ 1 _ . _ 2`) holds the last sound of the previous pass, so it loops.
+*   **Quotes must be balanced.** The `"` blocks do not nest: the next `"` closes the block.
+
+When a pattern has a typing error, the error is shown under the pattern with its position, and the last valid pattern keeps playing. Typical messages: `unknown character 'w'`, `prefix 'o' without a value`, `missing ')'`, `a probability's branches must last the same`, `a repeat must be 2-64`.
+
+### Not available in TeAr
+
+The language is shared with hosts that have more to offer than a MIDI arpeggiator. In TeAr, these are accepted by the compiler but have no effect or no use:
+
+*   `~` (glide) is meant for hosts that drive a value rather than a note. TeAr ignores it.
+*   A value between single quotes (`v'0.5'`, `p'0.3'`) is accepted when it is a plain number. Real expressions (`'64*energy'`) need a host that provides them, and TeAr gives the error `expressions need a host`.
+*   `let` lines (aliases for such expressions) are skipped.
+
+### Your presets and projects are not changed
+
+A pattern saved before syntax 3 (by a preset or a project) is read in syntax 2 and plays exactly as it did; "syntax 2" is shown under it. It becomes syntax 3 as soon as you edit it. New arpeggiators start in syntax 3.
+
+The full reference, with a one-page summary to print, is in [doc/TeAr-language-reference.tex](doc/TeAr-language-reference.tex).
 
 ---
 

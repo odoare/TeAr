@@ -143,7 +143,7 @@ on a commit nobody can fetch fails there.
 The version has one source: the `project()` line in `CMakeLists.txt`.
 
 ```cmake
-project(TeAr VERSION 0.4.0)
+project(TeAr VERSION 0.5.0)
 ```
 
 `juce_add_plugin` defaults the plugin version to `PROJECT_VERSION`, so the top
@@ -151,14 +151,14 @@ bar, the version stamped into saved states, and the pkg installer version all
 follow that line. Bump it, commit, and only then tag.
 
 ```bash
-git tag -a v0.4.0 -m "TeAr 0.4.0"
-git push origin v0.4.0
+git tag -a v0.5.0 -m "TeAr 0.5.0"
+git push origin v0.5.0
 ```
 
 Watch that push actually report the tag:
 
 ```
- * [new tag]         v0.4.0 -> v0.4.0
+ * [new tag]         v0.5.0 -> v0.5.0
 ```
 
 `Everything up-to-date` means the tag was already on the remote and no `push`
@@ -174,7 +174,7 @@ you try to push it again, which no trigger can rescue.
 Checking from the command line:
 
 ```bash
-git ls-remote --tags origin | grep v0.4.0        # is the tag on the remote?
+git ls-remote --tags origin | grep v0.5.0        # is the tag on the remote?
 gh run list --workflow=Release --limit 5         # did anything start?
 gh run watch                                     # follow the latest run
 ```
@@ -189,10 +189,10 @@ gh workflow run Release
 Redoing a tag that was pushed wrong:
 
 ```bash
-git push --delete origin v0.4.0
-git tag -d v0.4.0
-git tag -a v0.4.0 -m "TeAr 0.4.0"
-git push origin v0.4.0
+git push --delete origin v0.5.0
+git tag -d v0.5.0
+git tag -a v0.5.0 -m "TeAr 0.5.0"
+git push origin v0.5.0
 ```
 
 ### Checking the macOS artifacts from Linux
