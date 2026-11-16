@@ -13,6 +13,8 @@ language is implemented and why.
 Keep the LaTeX reference in step with the parser when the language changes: it
 documents syntax version 2, and the version is on its title page.
 
+Planned next: MPE as an option, off by default (`doc/mpe-plan.md`).
+
 ---
 
 ## What TeAr is
