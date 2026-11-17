@@ -243,6 +243,12 @@ TeArAudioProcessorEditor::TeArAudioProcessorEditor (TeArAudioProcessor& p)
     // hover and disabled states that go with it.
     followMidiInButton.setLookAndFeel (&fxmeLAF);
 
+    addAndMakeVisible (mpeButton);
+    mpeButton.button.setTooltip ("MPE output: each note on a channel of its own (2-16) with its own pitch bend,\n"
+                                 "so that the links ~ (glide) and ^ (legato) bend the note. The synth must be in\n"
+                                 "MPE mode, with a lower zone. Off, ~ and ^ are ignored.");
+    mpeButton.setLookAndFeel (&fxmeLAF);
+
     // The keyboard is a generic fxme component and knows nothing about
     // arpeggiators: it hands back the voice index it was given and asks what
     // colour that is.
@@ -290,6 +296,7 @@ TeArAudioProcessorEditor::~TeArAudioProcessorEditor()
 {
     tooltipWindow.setLookAndFeel (nullptr);
     followMidiInButton.setLookAndFeel (nullptr);
+    mpeButton.setLookAndFeel (nullptr);
     chordMethodLabel.setLookAndFeel (nullptr);
     chordMethodBox.setLookAndFeel (nullptr);
     scaleRootLabel.setLookAndFeel (nullptr);
@@ -541,6 +548,11 @@ void TeArAudioProcessorEditor::updateControlEnablement()
     followMidiInButton.setEnabled (scaleMode);
     scaleRootBox      .setEnabled (rootIsLive);
     scaleRootLabel    .setEnabled (rootIsLive);
+
+    // With MPE each note takes a channel of its own: the Ch boxes do nothing.
+    const bool mpe = apvts.getRawParameterValue ("mpe")->load() > 0.5f;
+    for (auto& comp : arpComponents)
+        comp->setMidiChannelEnabled (! mpe);
 }
 
 void TeArAudioProcessorEditor::updateScaleDisplay()
@@ -603,6 +615,7 @@ void TeArAudioProcessorEditor::resized()
         fb.items.add (juce::FlexItem (followMidiInButton).withFlex (0.6f).withMargin ({ 0, 5, 0, 5 }));
         fb.items.add (juce::FlexItem (scaleTypeLabel)    .withFlex (0.5f));
         fb.items.add (juce::FlexItem (scaleTypeBox)      .withFlex (1.0f));
+        fb.items.add (juce::FlexItem (mpeButton)         .withFlex (0.35f).withMargin ({ 0, 0, 0, 10 }));
         fb.performLayout (controlsRow.toFloat());
     }
 

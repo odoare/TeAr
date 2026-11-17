@@ -7,6 +7,8 @@
 
 #include "../Source/PluginProcessor.h"
 
+#include <set>
+
 namespace
 {
     juce::MemoryBlock binaryOf (const juce::XmlElement& xml)
@@ -124,6 +126,131 @@ TEST_CASE ("a syntax-1 state (before versioning) is migrated to syntax 2, then r
     load (p, *xml);
     CHECK (p.getArpeggiatorPattern (0) == "vF 1 2 3");
     CHECK (p.getArpeggiatorSyntax (0) == 2);
+}
+
+// ---------------------------------------------------------------------------
+// MPE (doc/mpe-plan.md): off by default; on, a note per channel and links that glide
+// ---------------------------------------------------------------------------
+
+namespace
+{
+    struct Heard
+    {
+        int ons = 0, offs = 0, bends = 0, controllers = 0;
+        std::set<int> noteChannels;
+    };
+
+    /** One arpeggiator playing `pattern` (the others off), a C held from the first block. */
+    void playing (TeArAudioProcessor& p, const juce::String& pattern)
+    {
+        p.prepareToPlay (48000.0, 512);
+        for (int i = 1; i < p.getNumArpeggiators(); ++i)
+            p.setArpeggiatorOn (i, false);
+        p.setArpeggiatorPattern (0, pattern);
+    }
+
+    void setMpe (TeArAudioProcessor& p, bool on)
+    {
+        p.getAPVTS().getParameter ("mpe")->setValueNotifyingHost (on ? 1.0f : 0.0f);
+    }
+
+    Heard run (TeArAudioProcessor& p, int blocks, bool pressFirst, bool releaseLast = false)
+    {
+        Heard h;
+        juce::AudioBuffer<float> audio (2, 512);
+        for (int b = 0; b < blocks; ++b)
+        {
+            juce::MidiBuffer midi;
+            if (b == 0 && pressFirst)
+                midi.addEvent (juce::MidiMessage::noteOn (1, 60, (juce::uint8) 100), 0);
+            if (b == blocks - 1 && releaseLast)
+                midi.addEvent (juce::MidiMessage::noteOff (1, 60), 0);
+            p.processBlock (audio, midi);
+            for (const auto m : midi)
+            {
+                const auto msg = m.getMessage();
+                if (msg.isNoteOn()) { ++h.ons; h.noteChannels.insert (msg.getChannel()); }
+                else if (msg.isNoteOff()) ++h.offs;
+                else if (msg.isPitchWheel()) ++h.bends;
+                else if (msg.isController()) ++h.controllers;
+            }
+        }
+        return h;
+    }
+}
+
+TEST_CASE ("MPE is off by default; an old session reads it off; saved on, it reloads on; a preset leaves it alone")
+{
+    TeArAudioProcessor p;
+    p.prepareToPlay (48000.0, 512);
+    CHECK (p.getAPVTS().getRawParameterValue ("mpe")->load() < 0.5f);
+
+    setMpe (p, true);
+    auto state = saved (p);
+    REQUIRE (state != nullptr);
+    TeArAudioProcessor q;
+    q.prepareToPlay (48000.0, 512);
+    load (q, *state);
+    CHECK (q.getAPVTS().getRawParameterValue ("mpe")->load() > 0.5f);
+
+    // A session saved before the option: no `mpe` at all.
+    for (auto* child : state->getChildWithTagNameIterator ("PARAM"))
+        if (child->getStringAttribute ("id") == "mpe")
+        {
+            state->removeChildElement (child, true);
+            break;
+        }
+    load (q, *state);
+    CHECK (q.getAPVTS().getRawParameterValue ("mpe")->load() < 0.5f);
+
+    // MPE describes the synth, not the patterns.
+    setMpe (q, true);
+    REQUIRE (q.getPresetManager().loadFactoryPreset (0));
+    CHECK (q.getAPVTS().getRawParameterValue ("mpe")->load() > 0.5f);
+}
+
+TEST_CASE ("MPE off: links are ignored, `1~3` plays as `1 3`, plain notes on the arpeggiator's channel")
+{
+    for (const char* text : { "m4 1~3 . .", "m4 1^3 . ." })
+    {
+        CAPTURE (text);
+        TeArAudioProcessor p;
+        playing (p, text);
+        const auto h = run (p, 100, true);   // 51200 samples: two quarter notes at 120 (24000 each)
+        CHECK (h.ons == 2);
+        CHECK (h.offs >= 1);
+        CHECK (h.bends == 0);
+        CHECK (h.controllers == 0);
+        CHECK (h.noteChannels == std::set<int> { 1 });
+    }
+}
+
+TEST_CASE ("MPE on: the zone announced, a glide one attack on a member channel and bends; switched off, nothing hangs")
+{
+    TeArAudioProcessor p;
+    playing (p, "m4 1~3 . .");
+    setMpe (p, true);
+    auto h = run (p, 60, true);   // into the second quarter: the glide has moved
+    CHECK (h.ons == 1);
+    CHECK (h.controllers == 6 * 16);   // RPN 0 and the zone, once
+    CHECK (h.bends > 10);
+    REQUIRE (h.noteChannels.size() == 1);
+    CHECK (*h.noteChannels.begin() >= 2);
+
+    // Switched off while the note sounds: its note-off, then plain notes again.
+    setMpe (p, false);
+    juce::AudioBuffer<float> audio (2, 512);
+    juce::MidiBuffer midi;
+    p.processBlock (audio, midi);
+    int offs = 0;
+    for (const auto m : midi)
+        if (m.getMessage().isNoteOff() && m.getMessage().getChannel() == *h.noteChannels.begin())
+            ++offs;
+    CHECK (offs >= 1);
+
+    h = run (p, 100, false, true);
+    CHECK (h.controllers == 0);
+    CHECK ((h.noteChannels.empty() || h.noteChannels == std::set<int> { 1 }));
 }
 
 int main (int argc, char** argv)

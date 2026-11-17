@@ -41,8 +41,10 @@ TeArAudioProcessor::TeArAudioProcessor()
     {
         ArpInstance arp;
         arp.midiChannel = i + 1;
+        attachEngine (arp);
         arps.push_back (std::move (arp));
     }
+    mpeOut.setMpe (false);
 
     apvts.addParameterListener ("chordMethod", this);
     for (int i = 0; i < MAX_ARPS; ++i)
@@ -59,8 +61,16 @@ TeArAudioProcessor::TeArAudioProcessor()
         storeArpsInState();
         writeVersionTo (apvts.state);
     };
+    // MPE describes the synth downstream, not the patterns: a preset never changes it.
+    presetManager.onBeforeLoad = [this]
+    {
+        mpeBeforePresetLoad = apvts.getRawParameterValue ("mpe")->load();
+    };
     presetManager.onAfterLoad  = [this]
     {
+        if (auto* mpe = apvts.getParameter ("mpe"))
+            mpe->setValueNotifyingHost (mpeBeforePresetLoad);
+
         // Read the preset's syntax version before anything rewrites it.
         const int syntax = (int) apvts.state.getProperty (patternSyntaxProperty, 0);
 
@@ -148,6 +158,9 @@ void TeArAudioProcessor::prepareToPlay (double sr, int samplesPerBlock)
     scratchPlayedChord.setFromScaleAndDegree (scratchScale, 0);
     scratchRootChord  .setFromScaleAndDegree (scratchScale, 0);
 
+    // A synth loaded since hears the MPE zone again before the next note.
+    mpeOut.reset();
+
     for (auto& arp : arps)
     {
         arp.engine.prepareToPlay (sampleRate);
@@ -180,13 +193,56 @@ bool TeArAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) con
 #endif
 
 // The arpeggiator engine hands back plain events; this is the one place they
-// become JUCE MIDI messages.
+// become JUCE MIDI messages. Bends and controllers come only with MPE; a glide's
+// bends fall inside the block, and MidiBuffer keeps them in time order.
 static void addArpEvents (juce::MidiBuffer& midi, fxme::ArrayView<fxme::ArpMidiEvent> events)
 {
     for (const auto& e : events)
-        midi.addEvent (e.noteOn ? juce::MidiMessage::noteOn (e.channel, e.note, (juce::uint8) e.velocity)
-                                : juce::MidiMessage::noteOff (e.channel, e.note),
-                       e.sample);
+    {
+        switch (e.kind)
+        {
+            case fxme::ArpMidiEvent::Kind::PitchBend:
+                midi.addEvent (juce::MidiMessage::pitchWheel (e.channel, e.value + 8192), e.sample);
+                break;
+            case fxme::ArpMidiEvent::Kind::Controller:
+                midi.addEvent (juce::MidiMessage::controllerEvent (e.channel, e.note, e.value), e.sample);
+                break;
+            case fxme::ArpMidiEvent::Kind::Note:
+                midi.addEvent (e.noteOn ? juce::MidiMessage::noteOn (e.channel, e.note, (juce::uint8) e.velocity)
+                                        : juce::MidiMessage::noteOff (e.channel, e.note),
+                               e.sample);
+                break;
+        }
+    }
+}
+
+void TeArAudioProcessor::attachEngine (ArpInstance& arp)
+{
+    arp.engine.setMpeOut (&mpeOut);
+    arp.engine.setLinks (mpeActive);
+}
+
+void TeArAudioProcessor::applyMpe (juce::MidiBuffer& midi)
+{
+    const bool on = apvts.getRawParameterValue ("mpe")->load() > 0.5f;
+    if (on == mpeActive)
+        return;
+
+    // Every note off first, on the channel it started on (with MPE, a member channel
+    // the shared MpeOut chose), so that none is left hanging by the switch.
+    for (auto& arp : arps)
+        addArpEvents (midi, arp.engine.turnOff (arp.midiChannel));
+
+    // Leaving MPE: the member channels keep the bend of their last note, and plain
+    // notes may go out on them (an arpeggiator's Ch box); centre them.
+    if (! on)
+        for (int ch = 2; ch <= 16; ++ch)
+            midi.addEvent (juce::MidiMessage::pitchWheel (ch, 8192), 0);
+
+    mpeOut.setMpe (on);   // on: the zone is announced again before the next note
+    mpeActive = on;
+    for (auto& arp : arps)
+        arp.engine.setLinks (on);
 }
 
 void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midiMessages)
@@ -217,6 +273,10 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
                 lastKnownBPM = positionInfo.bpm;
                 for (auto& arp : arps) arp.engine.setTempo (lastKnownBPM);
             }
+
+            // The transport starting: a synth loaded meanwhile hears the MPE zone again.
+            if (positionInfo.isPlaying && ! wasPlaying)
+                mpeOut.reset();
 
             if (positionInfo.isPlaying)
                 for (auto& arp : arps) arp.engine.syncToPlayHead (positionInfo.ppqPosition);
@@ -325,6 +385,8 @@ void TeArAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::M
     }
 
     midiMessages.clear();
+
+    applyMpe (midiMessages);
 
     if (notesChanged && heldNotes.isEmpty())
     {
@@ -454,12 +516,17 @@ void TeArAudioProcessor::loadArpsFromTree (const juce::ValueTree& tree, int stat
         applyPattern (arp);
         arp.engine.setTempo       (lastKnownBPM);
         arp.engine.setChordMethod (chordMethod);
+        attachEngine (arp);
         arps.push_back (std::move (arp));
     }
 
     // Safety: ensure at least one arp
     if (arps.empty())
-        arps.push_back (ArpInstance{});
+    {
+        ArpInstance arp;
+        attachEngine (arp);
+        arps.push_back (std::move (arp));
+    }
 }
 
 void TeArAudioProcessor::syncArpOnStatesFromParameters()
@@ -499,6 +566,7 @@ void TeArAudioProcessor::loadLegacyArps (const juce::XmlElement& xmlState)
         arp.engine.setSubdivision (arp.subdivision);
         arp.engine.setTempo       (lastKnownBPM);
         arp.engine.setChordMethod ((int) apvts.getRawParameterValue ("chordMethod")->load());
+        attachEngine (arp);
         arps.push_back (std::move (arp));
     }
 }
@@ -525,6 +593,15 @@ void TeArAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
     std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
     if (xmlState == nullptr) return;
     if (! xmlState->hasTagName (apvts.state.getType())) return;
+
+    // A session saved before the MPE option has no `mpe`: off, whatever this instance had
+    // (replaceState would keep the current value of a parameter the state lacks).
+    bool hasMpe = false;
+    for (auto* child : xmlState->getChildWithTagNameIterator ("PARAM"))
+        hasMpe = hasMpe || child->getStringAttribute ("id") == "mpe";
+    if (! hasMpe)
+        if (auto* mpe = apvts.getParameter ("mpe"))
+            mpe->setValueNotifyingHost (0.0f);
 
     apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
 
@@ -573,6 +650,7 @@ void TeArAudioProcessor::addArpeggiator()
         arp.engine.setTempo       (lastKnownBPM);
         arp.engine.setChordMethod ((int) apvts.getRawParameterValue ("chordMethod")->load());
         applyPattern (arp);   // a new arpeggiator: syntax 3
+        attachEngine (arp);
         arps.push_back (std::move (arp));
     }
     storeArpsInState();
@@ -840,6 +918,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout TeArAudioProcessor::createPa
 
     layout.add (std::make_unique<juce::AudioParameterBool> (
         "followMidiIn", "Follow MIDI In", false));
+
+    // Off by default: TeAr plays any synth. On, each note gets a channel of its own
+    // (the lower zone, 2-16) and the links `~` and `^` glide; off, they are ignored.
+    layout.add (std::make_unique<juce::AudioParameterBool> ("mpe", "MPE", false));
 
     for (int i = 0; i < MAX_ARPS; ++i)
         layout.add (std::make_unique<juce::AudioParameterBool> (

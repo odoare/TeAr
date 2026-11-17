@@ -188,6 +188,27 @@ A global prefix before a generator applies once to all its hits (`V8 e5/16 x`), 
 | `1 [3\|5\|7]` | A variation by pass: 3 the first time through the pattern, 5 the second, 7 the third, then 3 again. A part can be empty (`[1\|]` plays 1 every other pass) and can hold several steps. For the pattern to keep its length all parts should last the same; a difference is a warning, not an error. |
 | `; …` | A comment, to the end of the line. |
 
+### Links and MPE (new in 0.6.0)
+
+Two signs link a step to the next one. They go **between** two steps:
+
+| Write | Meaning |
+| :--- | :--- |
+| `3~5` | A glide: one note, 3, whose pitch slides to 5. 5 is not attacked again. |
+| `3^5` | A legato: one attack, and the pitch jumps to 5 when its step comes. |
+| `3___~__4` | The glide starts at the step written just before `~`: 3 sounds for three steps, then slides over three steps and arrives on 4. |
+| `{135}~{246}` | Chords glide voice by voice. |
+| `3~ . 5` | A rest between the two cancels the link: two notes. |
+
+A sign needs a step before it (`~3` is an error) and one after it; a sign at the very end of the pattern is ignored (no link from one pass to the next).
+
+A note can only bend on its own, so links need **MPE**. The **MPE** switch in the header, off by default:
+
+*   **Off:** TeAr plays any synth, each arpeggiator on its own MIDI channel (**Ch**). `~` and `^` are ignored: `3~5` plays as `3 5`.
+*   **On:** each note goes out on a channel of its own (2 to 16, the MPE lower zone) with its own pitch bend, and `~` and `^` glide and jump as above. The synth must be in MPE mode, with a lower zone (pitch bend range ±48 semitones, which TeAr announces before its first note). The **Ch** boxes do nothing. Fifteen notes can sound at once; a sixteenth shares the channel of the oldest one.
+
+MPE belongs to your setup, not to a pattern: a preset never switches it, and it is saved with the project. In syntax 2, `~` and `^` are not part of the language and are skipped as before.
+
 ### What changes for existing behaviour
 
 *   **Every pass starts from the pattern's defaults.** The global octave and velocity, the gate and the step duration are those of the pattern's start, no `" … "` block is left open, and the last degree is 1. So `1 O+ 2 3` plays 2 and 3 an octave up on every pass, instead of climbing an octave per pass as in syntax 2.
@@ -204,7 +225,6 @@ When a pattern has a typing error, the error is shown under the pattern with its
 
 The language is shared with hosts that have more to offer than a MIDI arpeggiator. In TeAr, these are accepted by the compiler but have no effect or no use:
 
-*   `~` (glide) is meant for hosts that drive a value rather than a note. TeAr ignores it.
 *   A value between single quotes (`v'0.5'`, `p'0.3'`) is accepted when it is a plain number. Real expressions (`'64*energy'`) need a host that provides them, and TeAr gives the error `expressions need a host`.
 *   `let` lines (aliases for such expressions) are skipped.
 

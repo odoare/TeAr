@@ -2,6 +2,7 @@
 
 #include <JuceHeader.h>
 #include <FxmeTools/presets/PresetManager.h>
+#include <FxmeTools/midi/Mpe.h>
 #include "ArpInstance.h"
 
 class TeArAudioProcessor : public juce::AudioProcessor
@@ -100,7 +101,24 @@ public:
 
 private:
     mutable juce::CriticalSection arpsLock;
+
+    /** MPE (the `mpe` parameter, off by default): one shared by all the arpeggiators, because
+        they write to one MIDI output; with one each, they would hand out the same channels.
+        Declared before `arps`, whose engines point at it; a member, so the pointer stays valid
+        when the vector moves its instances. */
+    fxme::MpeOut mpeOut;
+    /** The MPE state the engines are in: changed by processBlock() only, between two blocks'
+        notes, under arpsLock. With it off, the links `~` and `^` are ignored (a plain synth
+        cannot glide, and overlapping notes only blur a polyphonic one). */
+    bool mpeActive = false;
     std::vector<ArpInstance>      arps;
+
+    /** Plugs a new arpeggiator's engine into the shared MpeOut, in the current MPE state. */
+    void attachEngine (ArpInstance& arp);
+
+    /** Brings the engines to the `mpe` parameter if it moved: their notes released on the
+        channels they started on, then MPE switched. Audio thread, under arpsLock. */
+    void applyMpe (juce::MidiBuffer& midi);
 
     juce::AudioProcessorValueTreeState apvts;
     juce::AudioProcessorValueTreeState::ParameterLayout createParameters();
@@ -164,6 +182,9 @@ private:
     static void applyPattern (ArpInstance& arp);
 
     double sampleRate   = 0.0;
+    /** The value of `mpe` to keep across a preset load (onBeforeLoad / onAfterLoad): MPE
+        describes the synth TeAr plays, not the patterns. */
+    float  mpeBeforePresetLoad = 0.0f;
     double lastKnownBPM = 120.0;
     bool   wasPlaying   = false;
 

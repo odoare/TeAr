@@ -138,6 +138,14 @@ int ArpeggiatorComponent::getMidiChannel() const
     return midiChannelBox.getSelectedId();
 }
 
+void ArpeggiatorComponent::setMidiChannelEnabled (bool enabled)
+{
+    midiChannelBox  .setEnabled (enabled);
+    midiChannelLabel.setEnabled (enabled);   // a sibling, not a child: not greyed with the box
+    midiChannelBox.setTooltip (enabled ? juce::String()
+                                       : juce::String ("MPE is on: each note takes a channel of its own (2-16)"));
+}
+
 void ArpeggiatorComponent::setStatus (const juce::String& error, bool syntax2)
 {
     if (error == shownError && syntax2 == shownSyntax2)

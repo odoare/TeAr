@@ -1,6 +1,6 @@
 # TeAr architecture and roadmap
 
-State of the plugin as of version 0.5.0. This file exists to prime a session
+State of the plugin as of version 0.6.0. This file exists to prime a session
 (human or assistant) quickly: what the pieces are, which decisions were
 deliberate, and what is planned next.
 
@@ -69,8 +69,25 @@ referenced files that no longer existed.
 `TeArAudioProcessor` holds three things that interact carefully.
 
 **APVTS parameters.** `chordMethod`, `scaleRoot`, `scaleType`, `followMidiIn`,
-and `arp0On` … `arp15On`. Only the on/off flags are per-arpeggiator, because
+`mpe`, and `arp0On` … `arp15On`. Only the on/off flags are per-arpeggiator, because
 those are the only per-arpeggiator values worth automating.
+
+**MPE.** One `fxme::MpeOut mpeOut`, shared by every engine (`setMpeOut`,
+`attachEngine()` wherever an `ArpInstance` is made). One for all, because the
+arpeggiators write to one MIDI output: with one each, they would hand out the
+same member channels. It is a member of the processor, so the engines' pointer
+survives the vector moving its instances. `processBlock()` follows the `mpe`
+parameter in `applyMpe()`, between two blocks' notes: every engine's notes off
+first (on the channels they started on), then `mpeOut.setMpe()` and the engines'
+`setLinks()`. Links `~` and `^` play only with MPE: without it the engine would
+overlap the notes, which only blurs a polyphonic synth, so TeAr ignores them
+(`Arpeggiator::setLinks (false)`). Leaving MPE re-centres the bends of channels
+2-16, where plain notes may go next. `mpeOut.reset()` in `prepareToPlay()` and at
+each transport start announces the zone again to a synth loaded since.
+`addArpEvents` writes the three kinds of `fxme::ArpMidiEvent` (notes, bends,
+controllers). `mpe` is kept across a preset load (`onBeforeLoad` /
+`onAfterLoad`: it describes the synth, not the patterns), and a project saved
+before it reads it off.
 
 **The arpeggiator vector.** `std::vector<ArpInstance> arps`, guarded by
 `arpsLock`. Each entry carries the engine (`fxme::Arpeggiator`), the pattern

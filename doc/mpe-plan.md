@@ -1,6 +1,8 @@
 # Plan: MPE in TeAr
 
-> 2026-11-09. Written for a separate working session. Status: not started.
+> 2026-11-09. Written for a separate working session. Status: implemented 2026-11-16, to test with a real MPE synth (§ To test).
+>
+> **Changed from the plan:** with MPE off, the links `~` and `^` are **ignored** (`3~5` plays as `3 5`), not overlapped: TeAr plays any synth, and overlapping notes only blur a polyphonic one. FxmeTools gained `Arpeggiator::setLinks (bool)` for it; TeAr sets it with MPE. And a preset never changes `mpe` (it describes the synth downstream, not the patterns); only an old project reads it as off.
 > Everything the engine needs is in FxmeTools since the shared pattern player work of 2026-11-09 (FxmeTools `doc/api-changes.md`). This plan is only TeAr's side.
 
 ## Goal

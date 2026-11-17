@@ -2,7 +2,7 @@
 %
 % Build:  pdflatex TeAr-language-reference.tex   (twice, for the table of contents)
 %
-% Documents pattern syntax version 3, as implemented in TeAr 0.5.0.
+% Documents pattern syntax version 3, as implemented in TeAr 0.6.0.
 % The language itself is implemented in FxmeTools (midi/PatternLanguage.h) and
 % shared with other FX-Mechanics projects.
 % (c) 2026 Olivier Doare -- SPDX-License-Identifier: LGPL-3.0-or-later
@@ -50,7 +50,7 @@
 \title{\textbf{TeAr}\\[2mm]\large The Text Arpeggiator\\[4mm]
        \normalsize Pattern language reference}
 \author{FX-Mechanics}
-\date{Syntax version 3 \quad---\quad TeAr 0.5.0}
+\date{Syntax version 3 \quad---\quad TeAr 0.6.0}
 
 \begin{document}
 \maketitle
@@ -63,7 +63,7 @@ sequence. Each pattern belongs to one arpeggiator, and several arpeggiators run
 at once, each with its own pattern, step duration and MIDI output channel.
 
 This document is the complete reference for the pattern language as
-implemented in TeAr 0.5.0. Section~\ref{sec:quickref} is a one-page summary for
+implemented in TeAr 0.6.0. Section~\ref{sec:quickref} is a one-page summary for
 printing; the rest explains each command in turn. Sections 1 to 9 describe the
 core of the language; section~\ref{sec:syntax3} describes what syntax version~3
 adds to it, and section~\ref{sec:changes} what changed between versions.
@@ -546,13 +546,40 @@ the error is shown under the pattern text with its position. Typical messages:
 A warning does not stop the pattern: prefixes with no step after them are
 ignored, and the parts of a variation should last the same.
 
+\subsection{Links: \pat{\textasciitilde} and \pat{\textasciicircum}}
+\label{sec:links}
+
+A link joins a step to the next one. The sign goes \emph{between} two steps.
+
+\begin{itemize}[leftmargin=1.5em]
+  \item \pat{3\textasciitilde5}: a glide. One note, 3, whose pitch slides to 5;
+        5 is not attacked again.
+  \item \pat{3\textasciicircum5}: a legato. One attack, and the pitch jumps to
+        5 when its step comes.
+  \item The glide starts at the step written just before the sign, runs over the
+        holds after it and arrives on the next note:
+        \pat{3\_\_\_\textasciitilde\_\_4} holds 3 for three steps, then slides
+        over three.
+  \item Chords glide voice by voice: \pat{\{135\}\textasciitilde\{246\}}.
+  \item A rest between the two cancels the link: two notes.
+  \item A sign with no step before it (\pat{\textasciitilde3}), after a prefix,
+        or two in a row are errors. A sign at the very end of the pattern is
+        ignored, with a warning: no link from one pass to the next.
+\end{itemize}
+
+\paragraph{MPE.} A note can only bend on its own, so links play only with the
+\textbf{MPE} switch on (in the header, off by default). Then each note goes out on
+a channel of its own (2 to 16, the MPE lower zone) with its own pitch bend; the
+synth must be in MPE mode, with a lower zone, and the arpeggiators' \textbf{Ch}
+boxes do nothing. Off, TeAr plays any synth on the arpeggiators' channels and the
+links are ignored: \pat{3\textasciitilde5} plays as \pat{3 5}. A preset never
+switches MPE: it describes the synth, not the patterns.
+
 \subsection{Accepted, but not used by TeAr}
 
 The language is shared with hosts that drive more than notes. In TeAr:
 
 \begin{itemize}[leftmargin=1.5em]
-  \item \pat{\textasciitilde} (glide) is meant for hosts that move a value
-        rather than play a note. TeAr ignores it.
   \item A value between single quotes (\pat{v'0.5'}, \pat{p'0.3'}) is accepted
         when it is a plain number. A real expression such as \pat{'64*energy'}
         needs a host that provides them, and gives the error
@@ -645,6 +672,10 @@ Everything in section~\ref{sec:syntax3} is new, and the language moved into the
 FxmeTools library, shared with other projects. Two rules differ from version~2:
 the modifiers are reset at each pass, and the two branches of a probability must
 last the same.
+
+Links \pat{\textasciitilde} and \pat{\textasciicircum}
+(section~\ref{sec:links}) came in TeAr 0.6.0, with the MPE switch. The prefix
+form \pat{\textasciitilde3}, ignored by 0.5.0, is an error since 0.6.0.
 
 \paragraph{Your patterns are not changed.} A preset or a project saved before
 version~3 is read in syntax version~2 and plays exactly as it did; ``syntax 2''

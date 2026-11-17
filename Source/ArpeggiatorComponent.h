@@ -44,6 +44,8 @@ public:
     int  getSubdivisionIndex() const;
     void setMidiChannel (int channel);
     int  getMidiChannel() const;
+    /** Greys the Ch box out when it does nothing: with MPE, each note takes a channel of its own. */
+    void setMidiChannelEnabled (bool enabled);
     void setHighlightedRegion (juce::Range<int> range);
     /** Under the pattern: `error` (red) when it does not play, else a note when it is
         an old pattern read in syntax 2 (`syntax2`); nothing otherwise. */

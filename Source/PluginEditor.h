@@ -122,6 +122,7 @@ private:
     // APVTS it binds to at construction.
     fxme::FxmeButton followMidiInButton { audioProcessor.getAPVTS(), "followMidiIn",
                                           "Follow MIDI In", juce::Colours::white };
+    fxme::FxmeButton mpeButton { audioProcessor.getAPVTS(), "mpe", "MPE", juce::Colours::white };
 
     fxme::ScaleKeyboardComponent keyboardComponent;
     fxme::MidiTools::Scale currentDisplayScale { 0, fxme::MidiTools::Scale::Type::Major };
